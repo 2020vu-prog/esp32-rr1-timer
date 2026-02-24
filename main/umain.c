@@ -18,6 +18,8 @@
 #include "esp_wifi.h"
 #endif
 #include "rr1_ota.h"
+#include "rr1_wifi.h"
+
 
 static const char *TAG = "umain";
 
@@ -45,7 +47,10 @@ void app_main(void)
      * Read "Establishing Wi-Fi or Ethernet Connection" section in
      * examples/protocols/README.md for more information about this function.
      */
-    ESP_ERROR_CHECK(example_connect());
+    rr1WifiProv();
+    nvs_dumprr1();
+
+    //ESP_ERROR_CHECK(example_connect());
 
 #if CONFIG_EXAMPLE_CONNECT_WIFI
     /* Ensure to disable any WiFi power save mode, this allows best throughput
