@@ -19,7 +19,8 @@
 #endif
 #include "rr1_ota.h"
 #include "rr1_wifi.h"
-#include "driver/temp_sensor.h"
+
+#include "driver/temperature_sensor.h"
 
 #include "sdkconfig.h"
 #include "esp_app_desc.h"
@@ -65,12 +66,10 @@ void app_main(void)
 #endif // CONFIG_EXAMPLE_CONNECT_WIFI
 
 
-// Configuration
-temp_sensor_config_t temp_sensor = TSENS_CONFIG_DEFAULT();
-temp_sensor_get_config(&temp_sensor);
-temp_sensor.dac_offset = TSENS_DAC_DEFAULT; // Select range
-temp_sensor_set_config(temp_sensor);
-temp_sensor_start();
+
+temperature_sensor_handle_t temp_handle = NULL;
+temperature_sensor_config_t temp_sensor_config = TEMPERATURE_SENSOR_CONFIG_DEFAULT(20, 50);
+ESP_ERROR_CHECK(temperature_sensor_install(&temp_sensor_config, &temp_handle));
 
 
     xTaskCreate(&simple_ota_example_task, "ota_example_task", 8192, NULL, 5, NULL);
@@ -78,10 +77,21 @@ temp_sensor_start();
     while (1)
     {
     
-// Reading
+
+
+
+
+
+	// Enable temperature sensor
+ESP_ERROR_CHECK(temperature_sensor_enable(temp_handle));
+// Get converted sensor data
 float tsens_out;
-temp_sensor_read_celsius(&tsens_out);
-printf("Temperature: %.02f °C\n", tsens_out);
+ESP_ERROR_CHECK(temperature_sensor_get_celsius(temp_handle, &tsens_out));
+printf("Temperature in %f °C\n", tsens_out);
+// Disable the temperature sensor if it is not needed and save the power
+ESP_ERROR_CHECK(temperature_sensor_disable(temp_handle));
+
+
 
          //ESP_LOGI(TAG, "umain Hello World! %s", CONFIG_APP_PROJECT_VER);
          ESP_LOGI(TAG, "umain version! %s", ad->version);
