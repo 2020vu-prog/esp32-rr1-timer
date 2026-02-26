@@ -6,4 +6,7 @@ idf_component_register(SRCS "simple_ota_example.c" "umain.c"
                     PRIV_REQUIRES esp_http_client app_update esp_https_ota
                                   esp_netif mbedtls nvs_flash esp_wifi esp_psram
 				  rr1_wifi_prov
+				  esp_driver_tsens
+				  driver
+				  esp_app_format
                     )

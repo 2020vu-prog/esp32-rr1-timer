@@ -19,6 +19,11 @@
 #endif
 #include "rr1_ota.h"
 #include "rr1_wifi.h"
+#include "driver/temp_sensor.h"
+
+#include "sdkconfig.h"
+#include "esp_app_desc.h"
+// Use the macro: CONFIG_APP_PROJECT_VER
 
 
 static const char *TAG = "umain";
@@ -59,5 +64,27 @@ void app_main(void)
     esp_wifi_set_ps(WIFI_PS_NONE);
 #endif // CONFIG_EXAMPLE_CONNECT_WIFI
 
+
+// Configuration
+temp_sensor_config_t temp_sensor = TSENS_CONFIG_DEFAULT();
+temp_sensor_get_config(&temp_sensor);
+temp_sensor.dac_offset = TSENS_DAC_DEFAULT; // Select range
+temp_sensor_set_config(temp_sensor);
+temp_sensor_start();
+
+
     xTaskCreate(&simple_ota_example_task, "ota_example_task", 8192, NULL, 5, NULL);
+    const esp_app_desc_t *ad=esp_app_get_description();
+    while (1)
+    {
+    
+// Reading
+float tsens_out;
+temp_sensor_read_celsius(&tsens_out);
+printf("Temperature: %.02f °C\n", tsens_out);
+
+         //ESP_LOGI(TAG, "umain Hello World! %s", CONFIG_APP_PROJECT_VER);
+         ESP_LOGI(TAG, "umain version! %s", ad->version);
+         vTaskDelay(5000 / portTICK_PERIOD_MS);
+     }
 }
