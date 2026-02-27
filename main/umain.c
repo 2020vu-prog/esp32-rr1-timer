@@ -94,7 +94,7 @@ ESP_ERROR_CHECK(temperature_sensor_disable(temp_handle));
 
 
          //ESP_LOGI(TAG, "umain Hello World! %s", CONFIG_APP_PROJECT_VER);
-         ESP_LOGI(TAG, "umain version! %s", ad->version);
+         ESP_LOGI(TAG, "umain version TEST839! %s", ad->version);
          vTaskDelay(5000 / portTICK_PERIOD_MS);
      }
 }
