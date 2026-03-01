@@ -71,7 +71,8 @@ void simple_ota_example_task(void *pvParameter)
 {
     ESP_LOGI(TAG, "Starting OTA example task");
     esp_http_client_config_t config = {
-        .url = "https://go.rr1.us/llloij.bin",
+        //.url = "https://go.rr1.us/llloij.bin",
+        .url = "https://test.rr1.us/firmware/foo.bin",
         .crt_bundle_attach = esp_crt_bundle_attach,
         .event_handler = _http_event_handler,
         .keep_alive_enable = true,
@@ -87,7 +88,8 @@ void simple_ota_example_task(void *pvParameter)
     ESP_LOGI(TAG, "Attempting to download update from %s", config.url);
     esp_err_t ret = esp_https_ota(&ota_config);
     if (ret == ESP_OK) {
-        ESP_LOGI(TAG, "OTA Succeed, Rebooting...");
+        ESP_LOGW(TAG, "OTA Succeed, Rebooting...");
+        vTaskDelay(5000 / portTICK_PERIOD_MS);
         esp_restart();
     } else {
         ESP_LOGE(TAG, "Firmware upgrade failed");
