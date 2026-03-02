@@ -24,6 +24,12 @@
 
 #include "sdkconfig.h"
 #include "esp_app_desc.h"
+
+#include "timer_capture.h"
+
+#include "quad_uint32.h"
+#include "timer_mqtt.h"
+
 // Use the macro: CONFIG_APP_PROJECT_VER
 
 
@@ -65,14 +71,21 @@ void app_main(void)
     esp_wifi_set_ps(WIFI_PS_NONE);
 #endif // CONFIG_EXAMPLE_CONNECT_WIFI
 
+    esp_wifi_set_ps(WIFI_PS_NONE);
+    mqtt_app_start();
 
+
+    testem();
+    capture_main();
 
 temperature_sensor_handle_t temp_handle = NULL;
 temperature_sensor_config_t temp_sensor_config = TEMPERATURE_SENSOR_CONFIG_DEFAULT(20, 80);
 ESP_ERROR_CHECK(temperature_sensor_install(&temp_sensor_config, &temp_handle));
 
 
-    xTaskCreate(&simple_ota_example_task, "ota_example_task", 8192, NULL, 5, NULL);
+    // TODO:  check for new version. no repeat updates to same ver!
+    //xTaskCreate(&simple_ota_example_task, "ota_example_task", 8192, NULL, 5, NULL);
+
     const esp_app_desc_t *ad=esp_app_get_description();
     while (1)
     {
