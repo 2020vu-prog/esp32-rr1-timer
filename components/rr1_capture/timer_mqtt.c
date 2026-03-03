@@ -61,7 +61,8 @@ static void log_error_if_nonzero(const char *message, int error_code)
  * @param event_data The data for the event, esp_mqtt_event_handle_t.
  */
 static int connCount = 0;
-static int dconnCount = 0;
+static int disconnCount = 0;
+static int pubAckPending=0;
 static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_t event_id, void *event_data)
 {
     ESP_LOGD(TAG, "Event dispatched from event loop base=%s, event_id=%" PRIi32 "", base, event_id);
@@ -90,7 +91,7 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
         break;
     case MQTT_EVENT_DISCONNECTED:
         ESP_LOGI(TAG, "MQTT_EVENT_DISCONNECTED");
-        dconnCount++;
+        disconnCount++;
 
         p_client = NULL;
         break;
@@ -105,6 +106,7 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
         break;
     case MQTT_EVENT_PUBLISHED:
         ESP_LOGI(TAG, "MQTT_EVENT_PUBLISHED, msg_id=%d", event->msg_id);
+	pubAckPending--;
         break;
     case MQTT_EVENT_DATA:
         ESP_LOGI(TAG, "MQTT_EVENT_DATA");
@@ -261,11 +263,12 @@ void mq_pub(char *msg)
         double nowD = epoch_double();
 
         int fheap = esp_get_minimum_free_heap_size();
-        snprintf(buf, bufs, "{\"seq\":%04d, \"msg\":\"%s\", \"t\":\"%.4f\", \"f\":\"%d\", \"up\":%" PRIu64 ", \"conn\":\"%d:%d\"}",
-                 seq, msg, nowD, fheap, upUs, connCount, dconnCount);
+        snprintf(buf, bufs, "{\"seq\":%04d, \"msg\":\"%s\", \"t\":\"%.4f\", \"f\":\"%d\", \"up\":%" PRIu64 ", \"conn\":\"%d:%d\",\"minutes\":%d, \"blog\":%d  }",
+                 seq, msg, nowD, fheap, upUs, connCount, disconnCount,(int)(upUs/1000000)/60, pubAckPending);
 
         msg_id = esp_mqtt_client_publish(p_client, "/topic/cqos1", buf, 0, 2, 0);
         ESP_LOGI(TAG, "sent publish successful, msg_id=%d", msg_id);
+	pubAckPending++;
 
         // ESP_LOGI(TAG, "sent , now=%ld", getTime());
     }

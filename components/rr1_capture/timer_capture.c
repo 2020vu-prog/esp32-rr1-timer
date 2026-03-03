@@ -192,6 +192,16 @@ err:
 }
 static uint64_t softGpsTicks = 0;
 
+void mqHealth(void){
+	    static uint64_t lastUs = 0;
+	    uint64_t upUs = esp_timer_get_time();
+	    if(upUs > lastUs + 30000000){
+		mq_pub("health30");
+		lastUs=upUs;
+
+	    }
+
+}
 void capture_main(void)
 {
 
@@ -208,6 +218,7 @@ void capture_main(void)
     uint64_t priorv = 0;
     while (1)
     {
+	mqHealth();
         ESP_LOGI(TAG, "xQueueReceive: top");
         ESP_LOGI(TAG, "Generated UUID: %s", uuid_ran);
         // wait for echo done signal
