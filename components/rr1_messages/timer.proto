@@ -1,0 +1,155 @@
+syntax = "proto2";
+
+package timerpb;
+//import "google/protobuf/duration.proto";
+import "google/protobuf/timestamp.proto";
+option go_package = "timerpb";
+
+message TimerHealth{
+	optional  TimerTimeStamp stamp = 1;
+	//optional string chronyCsv=2;
+	optional bool chronyUsingPps=2;
+	optional bool gpsEmittingPps=3;
+	optional uint32 ramFreeKB=4;
+	optional float  cpuTempC=5;
+	optional uint32 cpuUptime=6;
+	optional uint32 batteryMilliVolts=7;
+	optional string ssid=8;
+	optional string linkQuality=9;
+	optional string signalLevel=10;
+	optional string wirelessMac=11;
+	optional float  wifiRss=12;
+	optional uint32 maxPublishAckMs=13; // rpi elapsed ms between publish request and publish callback
+	optional uint32 gpsUptimeContiguous=14;
+	optional uint32 gpsFlutter=15;  // how many times has pps been lost?
+	optional string wifiIP=16; 
+	optional uint64 versionStamp=17; 
+	optional bool overlayFsEnabled=18; 
+	optional uint32 gpsUptimeTotal=19;
+	optional uint32 gpsInitialAcquisitionSecondsAfterBoot=20;
+	optional uint64 buildEpoch=21;
+	optional bool gitDirty=22;
+	optional uint32 cpuIdlePercent=23;
+	optional uint32 xmitCredits=24;
+	optional uint32 mqttConnections=25;
+}
+
+message TimerPulse {
+  optional  uint32 pinNumber = 1;
+  optional  TimerTimeStamp stamp = 2;
+  optional PinState lane1= 3;
+  optional PinState lane2= 4;
+  optional  PinName pinName = 5;
+}
+
+  enum PinState {
+    CLEAR = 0;
+    BLOCKED = 1;
+    UNKNOWN_STATE = 2;
+  }
+  enum PinName{
+    lane1= 1;
+    lane2= 2;
+    gpsHz= 3;
+    oneHz= 4;
+    UNKNOWN_PIN= 9;
+  }
+message TimerPin {
+  optional  int32 pinNumber = 1;
+  optional  TimerTimeStamp stamp = 2;
+  optional  PinState pinState = 3;
+  optional  PinName pinName = 4;
+
+
+}
+
+message GpsTickXref {
+  repeated TimerTimeStamp timerTimeStamp=1;
+}
+
+message TimerTimeStamp{
+  optional  uint32 tick32=1; //deprecated
+  optional  google.protobuf.Timestamp gpsTime = 3;
+  optional  uint64 tick64=4;
+}
+
+message TimerData {
+  optional TimerPin timerPin = 1;
+  optional TimerPulse timerPulse = 2;
+  optional TimerHealth timerHealth = 3;
+  optional GpsTickXref gpsTickXref =4 ;
+}
+message TimerDataList {
+  repeated TimerData timerData = 3;
+  optional  google.protobuf.Timestamp xmitTime = 1;
+  optional uint64 xmitMs=2;
+  optional uint64 prevPubAckMs=4;
+}
+
+  enum SensorLogic{
+    LanePhotoEyes= 1;
+    OpposedStarterReeds= 2;
+    RampPhotoEyes= 3; // single photo eye used to trigger 'start'
+  }
+
+// not currently sent from RPI.  originates on server
+message ElapsedConfig{
+         repeated string timerName=1;
+         optional uint32 maxTravelMS=3;
+         optional uint32 minTravelMS=4;
+}
+message TimerConfig{
+	optional string timerName=1;
+	optional string timerMqttClientId=2;
+         optional bool useGpsTime=3;
+         optional string orgId=4;
+         optional string orgIz=5;
+         optional SensorLogic sensorLogic=6;
+         optional TimerConfigLanePhotoEye timerConfigLanePhotoEye=7;
+         optional TimerConfigOpposedStarter timerConfigOpposedStarter =8;
+         optional uint32 maxTrackSeconds=9;
+	 optional bool deleted=10; 
+	 optional uint32 seq=11;
+         optional TimerConfigRampPhotoEye timerConfigRampPhotoEye=12;
+
+}
+message TimerConfigRampPhotoEye{
+	optional TimerConfigOpposedPosition paddlesDropped=1; // eg: lane1:OFF lane2:on
+}
+message TimerConfigLanePhotoEye{
+         optional uint32 maxCarLenMS=1; // LP Only
+         optional uint32 minCarLenMS=2; // LP Only
+         optional uint32 maxPerfCount=3; // LP Only
+        optional uint32 clearMS=4;
+}
+message TimerConfigOpposedStarter{
+	repeated TimerConfigOpposedPosition paddlesUp=1; // eg: lane1:OFF lane2:on
+
+         optional uint32 maxTransitionMS=2;
+         optional uint32 minTransitionMS=3;
+}
+message TimerConfigOpposedPosition{
+         optional PinState pinState=1;
+         optional PinName  pinName=2;
+}
+message TimerEventList{
+  repeated TimerEvent timerEvent = 1;
+}
+message TimerEvent{
+  optional EventLaneTime eventLaneTime=1;
+  optional EventRacePaddleDrop eventRacePaddleDrop=2;
+  optional EventTimerAvailability eventTimerAvailability=3;
+  optional EventTimerHealthAlert eventTimerHealthAlert=4;
+}
+message EventRacePaddleDrop{
+}
+message EventTimerAvailability{
+}
+message EventTimerHealthAlert{
+}
+message EventLaneTime{
+	optional PinName lane=1;
+	optional TimerPin noseTime=2;
+	optional TimerPin tailTime=3;
+	optional bool lanePairFound=4; // true when both lane 1 and lane 2 have times
+}

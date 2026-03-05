@@ -7,6 +7,7 @@ idf_component_register(SRCS "simple_ota_example.c" "umain.c"
                                   esp_netif mbedtls nvs_flash esp_wifi esp_psram
 				  rr1_wifi_prov
 				  rr1_capture
+				  rr1_messages
 				  esp_driver_tsens
 				  esp_app_format
                     )
