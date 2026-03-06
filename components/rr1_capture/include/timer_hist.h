@@ -25,8 +25,8 @@ void timer_hist_init();
 void th_append(esp_probe_recv_data_t *recv_dataP);
 extern lane_transition_t *hist;
 extern int nextHist;
-// #define HIST_MAX 0x7fff
-#define HIST_MAX 0x000f
+#define HIST_MAX 0x7fff
+//#define HIST_MAX 0x000f
 #define MEG (1000 * 1000)
 int dec_hist(int h);
 int inc_hist(int h);

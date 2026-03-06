@@ -3,6 +3,7 @@
 #include "gps_xlate.h"
 
 #include "esp_heap_caps.h"
+#include "timer.pb-c.h"
 
 const static char *TAG = "rr1_capture";
 timer_config_t timerConfig = {
@@ -167,4 +168,36 @@ lane_state_enum getResultState(mcpwm_capture_edge_t cap_edge)
 bool isLaneClear(mcpwm_capture_edge_t cap_edge)
 {
     return cap_edge == MCPWM_CAP_EDGE_POS;
+}
+Timerpb__TimerData *marshalRr1TimerPbTimerData(lane_transition_t *h) {
+	Timerpb__TimerData *td= malloc(sizeof(Timerpb__TimerData));;
+	timerpb__timer_data__init(td);
+
+
+	Timerpb__TimerPin *tp= malloc(sizeof(Timerpb__TimerPin));;
+	timerpb__timer_pin__init(tp);
+	
+	td->timerpin = tp;
+
+	tp->has_pinname = true;
+	tp->pinname = h->lane_index == 0 ? TIMERPB__PIN_NAME__lane1 : TIMERPB__PIN_NAME__lane2;
+	tp->has_pinstate = true;
+	tp->pinstate = h->lane_result_state == LANE_CLEAR ? TIMERPB__PIN_STATE__CLEAR : TIMERPB__PIN_STATE__BLOCKED;
+	tp->has_pinnumber = true;
+	tp->pinnumber = h->lane_gpio;
+	tp->stamp = malloc(sizeof(Timerpb__TimerTimeStamp));						
+	timerpb__timer_time_stamp__init(tp->stamp);
+
+	tp->stamp->has_tick64 = true;
+	tp->stamp->tick64 = h->cap_value64;
+
+	if(h->gps_micros > 0){
+		tp->stamp->gpstime = malloc(sizeof(Google__Protobuf__Timestamp));
+		tp->stamp->gpstime->seconds = h->gps_micros / MEG	;
+		tp->stamp->gpstime->nanos = (h->gps_micros % MEG) * 1000;	
+	}
+	else	{
+		tp->stamp->gpstime = NULL;
+	}
+	return td;
 }
