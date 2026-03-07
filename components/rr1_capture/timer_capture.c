@@ -52,6 +52,8 @@ pindef_t pindefs[] = {
     },
 };
 pindef_t *gpsPindef = &pindefs[0];
+pindef_t *l1Pindef = &pindefs[1];
+pindef_t *l2Pindef = &pindefs[2];
 
 #define ESP_PROBE_DEFAULT_Q_DEPTH 25
 #define ESP_PROBE_ALLOC_CAPS (MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT)
@@ -190,9 +192,36 @@ esp_err_t capture_setup(void)
 err:
 	return ret;
 }
-static uint64_t softGpsTicks = 0;
+static uint64_t softGpsUs = 0;
+static uint64_t realGpsUs = 0;
+struct PollFunc{
+	void (*func)(struct PollFunc*);
+	uint64_t freqMs;
+	uint64_t nextMs;
+	uint64_t nowMs;
+};
+typedef struct PollFunc PollFunc;
 
-void mqHealth(void)
+
+void quadWatchdog(PollFunc *pf){
+
+	if(pf->nowMs<(realGpsUs/1000)+2000){
+		//pps active
+	}
+	else{
+		// no pps for 2 seconds, force a soft one to keep the quad alive
+		ESP_LOGI(TAG, "quadWatchdog: forcing soft gps");
+		softGpsUs = esp_timer_get_time();
+		mcpwm_capture_channel_trigger_soft_catch(gpsPindef->channel_h);
+	}
+}
+void simulateLaneActivity(PollFunc *pf)
+{
+	mcpwm_capture_channel_trigger_soft_catch(l1Pindef->channel_h); // TODO delete after test
+	mcpwm_capture_channel_trigger_soft_catch(l2Pindef->channel_h); // TODO delete after test
+}
+
+void mqHealth(PollFunc *pf)
 {
 	static uint64_t lastUs = 0;
 	uint64_t upUs = esp_timer_get_time();
@@ -202,6 +231,14 @@ void mqHealth(void)
 		lastUs = upUs;
 	}
 }
+
+PollFunc pollFuncs[] = {
+	{.func = mqHealth, .freqMs = 30000, .nextMs = 0},
+	{.func = simulateLaneActivity, .freqMs = 10000, .nextMs = 0},
+	{.func = quadWatchdog, .freqMs = 45000, .nextMs = 0},
+	{.func = NULL, .freqMs = 0, .nextMs = 0} // sentinel
+
+};
 void capture_main(void)
 {
 
@@ -218,7 +255,21 @@ void capture_main(void)
 	uint64_t priorv = 0;
 	while (1)
 	{
-		mqHealth();
+		const uint64_t nowMs = esp_timer_get_time()/1000;
+		int delayMs = 10000;
+		for(int x = 0; pollFuncs[x].func != NULL; x++){
+			if (nowMs > pollFuncs[x].nextMs){
+				pollFuncs[x].nowMs = nowMs;
+				pollFuncs[x].nextMs = nowMs + pollFuncs[x].freqMs;
+				pollFuncs[x].func(&pollFuncs[x]);
+			}
+			// min delay until next poll func needs to run
+			if (delayMs > pollFuncs[x].nextMs-nowMs){
+				delayMs = pollFuncs[x].nextMs-nowMs;
+			}	
+
+		}
+		//mqHealth();
 		ESP_LOGI(TAG, "xQueueReceive: top");
 		ESP_LOGI(TAG, "Generated UUID: %s", uuid_ran);
 		// wait for echo done signal
@@ -231,7 +282,11 @@ void capture_main(void)
 		// mq_pub(buf);
 
 		esp_probe_recv_data_t recv_data = {};
-		if (xQueueReceive(recv_que, &recv_data, pdMS_TO_TICKS(10000)) == pdTRUE)
+		if(delayMs < 100){
+			delayMs = 100;
+		}
+			ESP_LOGI(TAG, "xQueueReceive: waiting for %d ms", delayMs);
+		if (xQueueReceive(recv_que, &recv_data, pdMS_TO_TICKS(delayMs)) == pdTRUE)
 		{
 			apply64bitHysterisis(&recv_data);
 			uint64_t elapsed = recv_data.cap_value64 - priorv;
@@ -257,26 +312,12 @@ void capture_main(void)
 			{
 				pd->pinHandlerFunc(&recv_data);
 			}
-			/*
-			{
-			    float pulse_width_us = tof_ticks * (1000000.0 / esp_clk_apb_freq());
-			    if (pulse_width_us > 35000)
-			    {
-				// out of range
-				continue;
-			    }
-			    // convert the pulse width into measure distance
-			    float distance = (float)pulse_width_us / 58;
-			    ESP_LOGI(TAG, "Measured distance: %.2fcm", distance);
-			}
-			vTaskDelay(pdMS_TO_TICKS(500));
-			*/
+			
 		}
 		else
 		{
 
-			softGpsTicks = esp_timer_get_time();
-			mcpwm_capture_channel_trigger_soft_catch(gpsPindef->channel_h);
+
 		}
 	}
 }
@@ -313,10 +354,9 @@ void pinHandlerLane(esp_probe_recv_data_t *recv_dataP)
 	th_append(recv_dataP);
 }
 // real gps will suppress q timeout and therefore soft gps
-bool isSoftGps()
+bool isSoftGps(uint64_t nowGpsUs )
 {
-	uint64_t nowGpsTicks = esp_timer_get_time();
-	if (nowGpsTicks - softGpsTicks > 10000000)
+	if (nowGpsUs - softGpsUs > 10000000)
 	{
 		return false;
 	}
@@ -324,11 +364,14 @@ bool isSoftGps()
 }
 void pinHandlerGps(esp_probe_recv_data_t *recv_dataP)
 {
-	if (isSoftGps())
+		uint64_t nowGpsUs = esp_timer_get_time();
+
+	if (isSoftGps(nowGpsUs))
 	{
 		ESP_LOGI(TAG, "pinHandlerGps : skipping soft");
 
 		return;
 	}
+	realGpsUs= nowGpsUs;
 	log_gps_pps(recv_dataP);
 }

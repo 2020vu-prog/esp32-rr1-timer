@@ -201,3 +201,23 @@ Timerpb__TimerData *marshalRr1TimerPbTimerData(lane_transition_t *h) {
 	}
 	return td;
 }
+void freeRr1TimerPbTimerData(Timerpb__TimerData *h) {
+	if (h->timerpin)
+	{
+		if (h->timerpin->stamp)
+		{
+			if (h->timerpin->stamp->gpstime)
+			{
+				free(h->timerpin->stamp->gpstime);
+			}
+			free(h->timerpin->stamp);
+		}
+		free(h->timerpin);
+
+	}
+	
+	if (h->timerhealth)
+	{
+		free(h->timerhealth);
+	}
+}
