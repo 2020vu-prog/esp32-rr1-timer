@@ -221,6 +221,11 @@ void simulateLaneActivity(PollFunc *pf)
 	mcpwm_capture_channel_trigger_soft_catch(l2Pindef->channel_h); // TODO delete after test
 }
 
+void mqPollDataList(){
+
+	mqPubDataList();
+}
+
 void mqHealth(PollFunc *pf)
 {
 	static uint64_t lastUs = 0;
@@ -233,6 +238,7 @@ void mqHealth(PollFunc *pf)
 }
 
 PollFunc pollFuncs[] = {
+	{.func = mqPollDataList, .freqMs = 25000, .nextMs = 0},
 	{.func = mqHealth, .freqMs = 30000, .nextMs = 0},
 	{.func = simulateLaneActivity, .freqMs = 10000, .nextMs = 0},
 	{.func = quadWatchdog, .freqMs = 45000, .nextMs = 0},

@@ -6,7 +6,10 @@
 #define PROTOBUF_C__NO_DEPRECATED
 #endif
 
-#include "timestamp.pb-c.h"
+//#include "timestamp.pb-c.h"
+//manually editted to fix include path for google timestamp
+#include "google/protobuf/timestamp.pb-c.h"
+
 void   google__protobuf__timestamp__init
                      (Google__Protobuf__Timestamp         *message)
 {

@@ -243,6 +243,19 @@ void mq_pub_tags(jsonTagP tagsHead)
     char buf[bufs] = {};
     fmtJson(buf, bufs, tagsHead);
 }
+void mq_pub64(char *msg){
+    int msg_id;
+    if (p_client)
+    {
+        msg_id = esp_mqtt_client_publish(p_client, "/topic/cqos1", msg, 0, 2, 0);
+        ESP_LOGI(TAG, "sent publish successful, msg_id=%d", msg_id);
+	pubAckPending++;
+    }
+    else
+    {
+        ESP_LOGI(TAG, "NOT sent publish  ");
+    }
+}
 void mq_pub(char *msg)
 {
     static int seq;
