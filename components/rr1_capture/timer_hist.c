@@ -6,6 +6,7 @@
 #include "esp_heap_caps.h"
 #include "timer.pb-c.h"
 #include "timer_mqtt.h"
+#include "aws-bandaid.h"
 
 
 const static char *TAG = "rr1_capture";
@@ -246,34 +247,49 @@ int getXmitHistBacklog()
 	int backlog = nextHist - nextXmitHist;
 	return backlog & HIST_MAX;
 }
-Timerpb__TimerDataList *marshalRr1TimerPbTimerDataList(lane_transition_t *h);
-void mqPubDataList()
+Timerpb__TimerDataList *marshalRr1TimerPbTimerDataList(lane_transition_t *h, int *hCount);
+int mqPubDataList()
 {
-	Timerpb__TimerDataList *tdl = marshalRr1TimerPbTimerDataList(hist);
+	int ltCount=0;
+	Timerpb__TimerDataList *tdl = marshalRr1TimerPbTimerDataList(hist, &ltCount);
 	if (!tdl)
 	{
 		ESP_LOGI(TAG, "mqPubDataList: nothing to publish");
-		return;
+		return 0;
 	}
 	size_t packed_size = timerpb__timer_data_list__get_packed_size(tdl);
 	uint8_t *buffer = malloc(packed_size);
 	timerpb__timer_data_list__pack(tdl, buffer);
 
+	int rc=aba_xmit_b64_json(buffer, packed_size);
+
+	free(buffer);
+	freeRr1TimerPbTimerDataList(tdl);
+
+	if(rc>0){
+		nextXmitHist = (nextXmitHist + ltCount) & HIST_MAX;
+	}
+	return rc;
+}
+int aba_xmit_b64_json(uint8_t *buffer, size_t packed_size)
+{
 	unsigned char *input = buffer;
-	uint8_t *buffer64 = calloc(1,packed_size*2);
+	uint8_t *buffer64 = calloc(1, packed_size * 2);
 	size_t outlen;
 
-	mbedtls_base64_encode(buffer64, packed_size*2, &outlen, input, packed_size);
+	mbedtls_base64_encode(buffer64, packed_size * 2, &outlen, input, packed_size);
+	char* bj64=aba_b64_json((char *)buffer64);
 
-	mq_pub64((char*)buffer64);
-	free(buffer);
+	int rc = mq_pub64(bj64);
 	free(buffer64);
-	freeRr1TimerPbTimerDataList(tdl);
+	free(bj64);
+	return rc;
 }
-Timerpb__TimerDataList *marshalRr1TimerPbTimerDataList(lane_transition_t *h)
+Timerpb__TimerDataList *marshalRr1TimerPbTimerDataList(lane_transition_t *h, int *hCount)
 {
 
 	int tlCount = getXmitHistBacklog();
+	*hCount = tlCount;
 	if (tlCount < 1)
 	{
 		ESP_LOGI(TAG, "marshalRr1TimerPbTimerDataList: backlog %d empty", tlCount);
@@ -292,6 +308,5 @@ Timerpb__TimerDataList *marshalRr1TimerPbTimerDataList(lane_transition_t *h)
 		tdl->timerdata[x] = marshalRr1TimerPbTimerData(h);
 		ESP_LOGI(TAG, "marshalRr1TimerPbTimerDataList: backlog %d idx %d ticks64 %" PRIu64, tlCount, idx, h->cap_value64);
 	}
-	nextXmitHist = (nextXmitHist + tlCount) & HIST_MAX;
 	return tdl;
 }

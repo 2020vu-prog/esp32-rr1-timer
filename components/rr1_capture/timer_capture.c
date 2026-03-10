@@ -228,13 +228,7 @@ void mqPollDataList(){
 
 void mqHealth(PollFunc *pf)
 {
-	static uint64_t lastUs = 0;
-	uint64_t upUs = esp_timer_get_time();
-	if (upUs > lastUs + 30000000)
-	{
 		mq_pub("health30");
-		lastUs = upUs;
-	}
 }
 
 PollFunc pollFuncs[] = {
@@ -264,7 +258,7 @@ void capture_main(void)
 		const uint64_t nowMs = esp_timer_get_time()/1000;
 		int delayMs = 10000;
 		for(int x = 0; pollFuncs[x].func != NULL; x++){
-			if (nowMs > pollFuncs[x].nextMs){
+			if (nowMs >= pollFuncs[x].nextMs){
 				pollFuncs[x].nowMs = nowMs;
 				pollFuncs[x].nextMs = nowMs + pollFuncs[x].freqMs;
 				pollFuncs[x].func(&pollFuncs[x]);

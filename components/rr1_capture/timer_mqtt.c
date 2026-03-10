@@ -98,7 +98,7 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
 
     case MQTT_EVENT_SUBSCRIBED:
         ESP_LOGI(TAG, "MQTT_EVENT_SUBSCRIBED, msg_id=%d", event->msg_id);
-        msg_id = esp_mqtt_client_publish(client, "/topic/qos0", "data", 0, 0, 0);
+        msg_id = esp_mqtt_client_enqueue(client, "/topic/qos0", "data", 0, 0, 0, true);
         ESP_LOGI(TAG, "sent publish successful, msg_id=%d", msg_id);
         break;
     case MQTT_EVENT_UNSUBSCRIBED:
@@ -110,8 +110,8 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
         break;
     case MQTT_EVENT_DATA:
         ESP_LOGI(TAG, "MQTT_EVENT_DATA");
-        printf("TOPIC=%.*s\r\n", event->topic_len, event->topic);
-        printf("DATA=%.*s\r\n", event->data_len, event->data);
+        printf("MQTT_EVENT_DATA TOPIC=%.*s\r\n", event->topic_len, event->topic);
+        printf("MQTT_EVENT_DATA DATA=%.*s\r\n", event->data_len, event->data);
         break;
     case MQTT_EVENT_ERROR:
         ESP_LOGI(TAG, "MQTT_EVENT_ERROR");
@@ -243,18 +243,19 @@ void mq_pub_tags(jsonTagP tagsHead)
     char buf[bufs] = {};
     fmtJson(buf, bufs, tagsHead);
 }
-void mq_pub64(char *msg){
-    int msg_id;
+int mq_pub64(char *msg){
+    int msg_id=-9;
     if (p_client)
     {
-        msg_id = esp_mqtt_client_publish(p_client, "/topic/cqos1", msg, 0, 2, 0);
-        ESP_LOGI(TAG, "sent publish successful, msg_id=%d", msg_id);
+        msg_id = esp_mqtt_client_enqueue(p_client, "/topic/cqos1", msg, 0, 2, 0, true);
+        ESP_LOGI(TAG, "mq_pub64 sent publish successful, msg_id=%d", msg_id);
 	pubAckPending++;
     }
     else
     {
-        ESP_LOGI(TAG, "NOT sent publish  ");
+        ESP_LOGI(TAG, "mq_pub64 NOT sent publish  ");
     }
+    return	 msg_id;
 }
 void mq_pub(char *msg)
 {
@@ -279,15 +280,15 @@ void mq_pub(char *msg)
         snprintf(buf, bufs, "{\"seq\":%04d, \"msg\":\"%s\", \"t\":\"%.4f\", \"f\":\"%d\", \"up\":%" PRIu64 ", \"conn\":\"%d:%d\",\"minutes\":%d, \"blog\":%d  }",
                  seq, msg, nowD, fheap, upUs, connCount, disconnCount,(int)(upUs/1000000)/60, pubAckPending);
 
-        msg_id = esp_mqtt_client_publish(p_client, "/topic/cqos1", buf, 0, 2, 0);
-        ESP_LOGI(TAG, "sent publish successful, msg_id=%d", msg_id);
+        msg_id = esp_mqtt_client_enqueue(p_client, "/topic/cqos1", buf, 0, 2, 0, true);
+        ESP_LOGI(TAG, "mq_pub sent publish successful, msg_id=%d", msg_id);
 	pubAckPending++;
 
         // ESP_LOGI(TAG, "sent , now=%ld", getTime());
     }
     else
     {
-        ESP_LOGI(TAG, "NOT sent publish  ");
+        ESP_LOGI(TAG, "mq_pub NOT sent publish  ");
     }
 }
 void addTag(jsonTagP tagsHead, jsonTagP nt)

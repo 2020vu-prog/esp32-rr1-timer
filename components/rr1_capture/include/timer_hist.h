@@ -66,5 +66,6 @@ lane_state_enum getResultState(mcpwm_capture_edge_t cap_edge);
 #define FE_PERFCOUNT 'e'
 #define FE_NONE '0'
 
+int mqPubDataList();
 
-void mqPubDataList();
+int aba_xmit_b64_json(uint8_t *buffer, size_t packed_size);

@@ -10,7 +10,7 @@ typedef struct _jsonTag
 typedef jsonTag *jsonTagP;
 
 void mqtt_app_start(void);
-void mq_pub64(char *msg);
+int mq_pub64(char *msg);
 void mq_pub(char *msg);
 void fmtJson(char *buf, size_t bufs, jsonTagP tagsHead);
 double epoch_double();

@@ -1,22 +1,30 @@
 #include "mbedtls/base64.h"
 #include "esp_heap_caps.h"
+#include <cjson.h>
 
 #include <string.h>
 
-#define ABA_RAW_SIZE 4096
-#define ABA_RAW_SIZE64 ((ABA_RAW_SIZE + (ABA_RAW_SIZE / 2)))
-struct AbaHandle
+char* aba_b64_json(char *buffer )
 {
-	char raw[ABA_RAW_SIZE];
-	char b64[ABA_RAW_SIZE64];
-	char json[ABA_RAW_SIZE64];
-};
+	    char *string = NULL;
 
-typedef struct AbaHandle AbaHandle;
-AbaHandle *initAbaHandle(void)
-{
-	AbaHandle *h = heap_caps_malloc(sizeof(AbaHandle), MALLOC_CAP_SPIRAM);
+	    cJSON *monitor = cJSON_CreateObject();
+	        if (monitor == NULL)
+    {
+        goto end;
+    }
 
-	memset(h, 0, sizeof(AbaHandle));
-	return h;
+    if (cJSON_AddStringToObject(monitor, "b64", buffer) == NULL)
+    {
+        goto end;
+    }
+        string = cJSON_PrintUnformatted(monitor);
+    if (string == NULL)
+    {
+        fprintf(stderr, "Failed to print monitor.\n");
+    }
+
+end:
+    cJSON_Delete(monitor);
+    return string;
 }
