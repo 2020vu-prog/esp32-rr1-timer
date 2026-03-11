@@ -5,10 +5,14 @@
 
 #include "esp_heap_caps.h"
 #include "timer.pb-c.h"
+#include "timer_health.h"
 #include "timer_mqtt.h"
 #include "aws-bandaid.h"
+#include "esp_timer.h"
+#include "esp_system.h"
 
 
+Timerpb__TimerData * marshalRr1TimerPbTimerDataHealth();
 const static char *TAG = "rr1_capture";
 timer_config_t timerConfig = {
 	clearMs : 10 * 1000,
@@ -285,11 +289,26 @@ int aba_xmit_b64_json(uint8_t *buffer, size_t packed_size)
 	free(bj64);
 	return rc;
 }
-Timerpb__TimerDataList *marshalRr1TimerPbTimerDataList(lane_transition_t *h, int *hCount)
+// TODO  Health is still due if, message send fails transmission
+bool isHealthDue(){
+	static uint64_t lastHealthUs = 0;
+	uint64_t upUs = esp_timer_get_time();
+	if (upUs > lastHealthUs + 30000000)
+	{
+		lastHealthUs = upUs;
+		return true;
+	}
+	return false;
+}
+Timerpb__TimerDataList *marshalRr1TimerPbTimerDataList(lane_transition_t *h, int *tlUsed)
 {
 
 	int tlCount = getXmitHistBacklog();
-	*hCount = tlCount;
+	int healthCount = isHealthDue() ? 1 : 0;
+	if(tlCount > 20){
+		tlCount = 20; // cap the backlog to avoid creating huge messages
+	}
+	*tlUsed = tlCount;
 	if (tlCount < 1)
 	{
 		ESP_LOGI(TAG, "marshalRr1TimerPbTimerDataList: backlog %d empty", tlCount);
@@ -299,7 +318,7 @@ Timerpb__TimerDataList *marshalRr1TimerPbTimerDataList(lane_transition_t *h, int
 	;
 	timerpb__timer_data_list__init(tdl);
 
-	tdl->n_timerdata = tlCount;
+	tdl->n_timerdata = tlCount+healthCount;
 	tdl->timerdata = malloc(sizeof(Timerpb__TimerData *) * tdl->n_timerdata);
 	for (int x = 0; x < tlCount; x++)
 	{
@@ -308,5 +327,28 @@ Timerpb__TimerDataList *marshalRr1TimerPbTimerDataList(lane_transition_t *h, int
 		tdl->timerdata[x] = marshalRr1TimerPbTimerData(h);
 		ESP_LOGI(TAG, "marshalRr1TimerPbTimerDataList: backlog %d idx %d ticks64 %" PRIu64, tlCount, idx, h->cap_value64);
 	}
+	if(healthCount){
+				tdl->timerdata[tlCount] = marshalRr1TimerPbTimerDataHealth();
+	}
 	return tdl;
+}
+Timerpb__TimerData * marshalRr1TimerPbTimerDataHealth(){
+
+	ESP_LOGI(TAG, "marshalRr1TimerPbTimerDataHealth: ");
+
+	Timerpb__TimerData *td = malloc(sizeof(Timerpb__TimerData));
+	timerpb__timer_data__init(td);
+
+	td->timerhealth = malloc(sizeof(Timerpb__TimerHealth));
+	timerpb__timer_health__init(td->timerhealth);
+
+	td->timerhealth->has_ramfreekb = true;
+	td->timerhealth->ramfreekb =         esp_get_minimum_free_heap_size()/1024;
+
+	td->timerhealth->has_cputempc = true;
+	td->timerhealth->cputempc = health_cpu_temp();
+
+	td->timerhealth->has_mqttconnections = true;
+	td->timerhealth->mqttconnections = 0;
+	return td;
 }

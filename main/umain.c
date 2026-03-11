@@ -20,7 +20,6 @@
 #include "rr1_ota.h"
 #include "rr1_wifi.h"
 
-#include "driver/temperature_sensor.h"
 
 #include "sdkconfig.h"
 #include "esp_app_desc.h"
@@ -78,9 +77,7 @@ void app_main(void)
     testem();
     capture_main();
 
-temperature_sensor_handle_t temp_handle = NULL;
-temperature_sensor_config_t temp_sensor_config = TEMPERATURE_SENSOR_CONFIG_DEFAULT(20, 80);
-ESP_ERROR_CHECK(temperature_sensor_install(&temp_sensor_config, &temp_handle));
+
 
 
     // TODO:  check for new version. no repeat updates to same ver!
@@ -95,14 +92,7 @@ ESP_ERROR_CHECK(temperature_sensor_install(&temp_sensor_config, &temp_handle));
 
 
 
-	// Enable temperature sensor
-ESP_ERROR_CHECK(temperature_sensor_enable(temp_handle));
-// Get converted sensor data
-float tsens_out;
-ESP_ERROR_CHECK(temperature_sensor_get_celsius(temp_handle, &tsens_out));
-printf("Temperature in %f °C\n", tsens_out);
-// Disable the temperature sensor if it is not needed and save the power
-ESP_ERROR_CHECK(temperature_sensor_disable(temp_handle));
+
 
 
 

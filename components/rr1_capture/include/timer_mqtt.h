@@ -1,5 +1,8 @@
 #pragma once
 
+
+struct _rr1MqHandle ;
+typedef struct _rr1MqHandle *rr1MqHandle;
 typedef struct _jsonTag
 {
     char *tag;

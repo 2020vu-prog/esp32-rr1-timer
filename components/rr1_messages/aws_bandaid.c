@@ -4,27 +4,32 @@
 
 #include <string.h>
 
-char* aba_b64_json(char *buffer )
+static int seq = 0;
+char *aba_b64_json(char *buffer)
 {
-	    char *string = NULL;
+	char *string = NULL;
 
-	    cJSON *monitor = cJSON_CreateObject();
-	        if (monitor == NULL)
-    {
-        goto end;
-    }
+	cJSON *monitor = cJSON_CreateObject();
+	if (monitor == NULL)
+	{
+		goto end;
+	}
 
-    if (cJSON_AddStringToObject(monitor, "b64", buffer) == NULL)
-    {
-        goto end;
-    }
-        string = cJSON_PrintUnformatted(monitor);
-    if (string == NULL)
-    {
-        fprintf(stderr, "Failed to print monitor.\n");
-    }
+	if (cJSON_AddNumberToObject(monitor, "seq", seq++) == NULL)
+	{
+		goto end;
+	}
+	if (cJSON_AddStringToObject(monitor, "b64", buffer) == NULL)
+	{
+		goto end;
+	}
+	string = cJSON_PrintUnformatted(monitor);
+	if (string == NULL)
+	{
+		fprintf(stderr, "Failed to print monitor.\n");
+	}
 
 end:
-    cJSON_Delete(monitor);
-    return string;
+	cJSON_Delete(monitor);
+	return string;
 }
