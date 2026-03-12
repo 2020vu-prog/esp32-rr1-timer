@@ -10,6 +10,7 @@
 #include "aws-bandaid.h"
 #include "esp_timer.h"
 #include "esp_system.h"
+#include "rr1_wifi.h"
 
 Timerpb__TimerData *marshalRr1TimerPbTimerDataHealth();
 const static char *TAG = "rr1_capture";
@@ -346,17 +347,46 @@ Timerpb__TimerData *marshalRr1TimerPbTimerDataHealth()
 	td->timerhealth = malloc(sizeof(Timerpb__TimerHealth));
 	timerpb__timer_health__init(td->timerhealth);
 
+		struct timespec tv;
+	if (!clock_gettime(CLOCK_REALTIME, &tv))
+	{
+		td->timerhealth->stamp=malloc(sizeof(  Timerpb__TimerTimeStamp ));
+		timerpb__timer_time_stamp__init(td->timerhealth->stamp);
+		// to do: this is broken
+		td->timerhealth->stamp->has_tick64 = true;
+		td->timerhealth->stamp->tick64 = (uint64_t)tv.tv_sec * 1000000 + (tv.tv_nsec / 1000);		
+
+	}
+
+	td->timerhealth->has_gpsemittingpps = true;
+	td->timerhealth->gpsemittingpps = isGpsEmittingPps();
+
 	td->timerhealth->has_ramfreekb = true;
 	td->timerhealth->ramfreekb = esp_get_minimum_free_heap_size() / 1024;
 
 	td->timerhealth->has_cputempc = true;
 	td->timerhealth->cputempc = health_cpu_temp();
 
+	td->timerhealth->has_cpuuptime = true;
+	td->timerhealth->cpuuptime = esp_timer_get_time() / 1000000;
+
 	td->timerhealth->has_mqttconnections = true;
 	td->timerhealth->mqttconnections = getMqttConnectionCount();
 
+	td->timerhealth->has_wifirss = true;
+	td->timerhealth->wifirss = getWifiRssi();
+
 	td->timerhealth->has_gpsflutter = true;
 	td->timerhealth->gpsflutter = getGpsFlutter();
+
+	if (wifi_ip[0])
+	{
+		td->timerhealth->wifiip=malloc(20);
+		snprintf(td->timerhealth->wifiip, 20, "%s", wifi_ip);
+	}
+	
+	td->timerhealth->wirelessmac=malloc(20);
+	get_device_mac(td->timerhealth->wirelessmac, 20);
 
 	td->timerhealth->has_gpsuptimetotal = true;
 	td->timerhealth->gpsuptimetotal = getGpsUptimeTotalSeconds();

@@ -36,4 +36,5 @@ typedef struct _pindef_t
 int getGpsInitialAcquisitionSecondsAfterBoot();
 int getGpsUptimeTotalSeconds();
 int getGpsFlutter();
+bool isGpsEmittingPps();
 

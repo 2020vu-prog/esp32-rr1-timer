@@ -366,17 +366,17 @@ bool isSoftGps(uint64_t nowGpsUs )
 int gpsInitialAcquisitionSecondsAfterBoot=0;
 int gpsUptimeTotalSeconds=0;
 int gpsFlutter=0;
+bool gpsemittingpps=false;
 void pinHandlerGps(esp_probe_recv_data_t *recv_dataP)
 {
-		uint64_t nowGpsUs = esp_timer_get_time();
+	uint64_t nowGpsUs = esp_timer_get_time();
 
-	if(!gpsInitialAcquisitionSecondsAfterBoot){
-		gpsInitialAcquisitionSecondsAfterBoot = nowGpsUs/1000000;
-	}
+
 
 	if (isSoftGps(nowGpsUs))
 	{
 		ESP_LOGI(TAG, "pinHandlerGps : skipping soft");
+		gpsemittingpps = false;
 		if(staleGpsUs!=realGpsUs){
 			staleGpsUs = realGpsUs;
 			gpsFlutter++;
@@ -384,6 +384,12 @@ void pinHandlerGps(esp_probe_recv_data_t *recv_dataP)
 
 		return;
 	}
+
+	// this is a real gps event, reset the real gps timer and update health stats
+	if(!gpsInitialAcquisitionSecondsAfterBoot){
+		gpsInitialAcquisitionSecondsAfterBoot = nowGpsUs/1000000;
+	}
+	gpsemittingpps = true;
 	realGpsUs= nowGpsUs;
 	gpsUptimeTotalSeconds++;
 	log_gps_pps(recv_dataP);
@@ -397,3 +403,6 @@ int getGpsUptimeTotalSeconds(){
 int getGpsFlutter(){
 	return gpsFlutter;
 }	
+bool isGpsEmittingPps(){
+	return gpsemittingpps;
+}

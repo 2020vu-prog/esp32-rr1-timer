@@ -37,7 +37,8 @@
 
 
 
-static const char *TAG = "app";
+static const char *TAG = "wifi_prov";
+char wifi_ip[20] = {0};
 
 #if CONFIG_EXAMPLE_PROV_SECURITY_VERSION_2
 #if CONFIG_EXAMPLE_PROV_SEC2_DEV_MODE
@@ -182,6 +183,7 @@ static void event_handler(void* arg, esp_event_base_t event_base,
     } else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP) {
         ip_event_got_ip_t* event = (ip_event_got_ip_t*) event_data;
         ESP_LOGI(TAG, "Connected with IP Address:" IPSTR, IP2STR(&event->ip_info.ip));
+	snprintf(wifi_ip, 20, IPSTR, IP2STR(&event->ip_info.ip));
         /* Signal main application to continue execution */
         xEventGroupSetBits(wifi_event_group, WIFI_CONNECTED_EVENT);
 #ifdef CONFIG_EXAMPLE_PROV_TRANSPORT_BLE

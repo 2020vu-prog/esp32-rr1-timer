@@ -1,5 +1,8 @@
 
 #include "driver/temperature_sensor.h"
+#include "esp_wifi.h"
+#include "esp_event.h"
+
 #include "timer_health.h"
 
 temperature_sensor_handle_t temp_handle = NULL;
@@ -29,4 +32,19 @@ float health_cpu_temp()
 	// Disable the temperature sensor if it is not needed and save the power
 	ESP_ERROR_CHECK(temperature_sensor_disable(temp_handle));
 	return tsens_out;
+}
+int getWifiRssi(){
+	wifi_ap_record_t ap_info;
+	if (esp_wifi_sta_get_ap_info(&ap_info) == ESP_OK) {
+		return ap_info.rssi;
+	}
+	return 0;
+}
+void get_device_mac(char *mac, size_t max)
+{
+    uint8_t eth_mac[6];
+    esp_wifi_get_mac(WIFI_IF_STA, eth_mac);
+    snprintf(mac, max, "%02X:%02X:%02X:%02X:%02X:%02X",
+             eth_mac[0], eth_mac[1], eth_mac[2], eth_mac[3], eth_mac[4], eth_mac[5]);
+
 }
