@@ -232,6 +232,21 @@ void freeRr1TimerPbTimerData(Timerpb__TimerData *h)
 
 	if (h->timerhealth)
 	{
+		if(h->timerhealth->stamp){
+			if(h->timerhealth->stamp->gpstime){
+				free(h->timerhealth->stamp->gpstime);
+			}
+			free(h->timerhealth->stamp);
+		}
+		if(h->timerhealth->wifiip){
+			free(h->timerhealth->wifiip);
+		}			
+		if(h->timerhealth->wirelessmac){
+			free(h->timerhealth->wirelessmac);
+		}	
+		if(h->timerhealth->ssid){
+			free(h->timerhealth->ssid);
+		}
 		free(h->timerhealth);
 	}
 }
@@ -370,6 +385,9 @@ Timerpb__TimerData *marshalRr1TimerPbTimerDataHealth()
 	td->timerhealth->has_cpuuptime = true;
 	td->timerhealth->cpuuptime = esp_timer_get_time() / 1000000;
 
+	td->timerhealth->ssid=malloc(40);
+	get_wifi_ssid(td->timerhealth->ssid);
+
 	td->timerhealth->has_mqttconnections = true;
 	td->timerhealth->mqttconnections = getMqttConnectionCount();
 
@@ -393,5 +411,8 @@ Timerpb__TimerData *marshalRr1TimerPbTimerDataHealth()
 
 	td->timerhealth->has_gpsinitialacquisitionsecondsafterboot = true;
 	td->timerhealth->gpsinitialacquisitionsecondsafterboot = getGpsInitialAcquisitionSecondsAfterBoot();
+
+	td->timerhealth->has_buildepoch = true;
+	td->timerhealth->buildepoch = BUILD_EPOCH;	
 	return td;
 }
