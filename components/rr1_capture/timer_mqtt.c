@@ -346,3 +346,7 @@ void fmtJson(char *buf, size_t bufs, jsonTagP tagsHead)
 		tagsHead = tagsHead->next;
 	}
 }
+int getMqttConnectionCount()
+{
+	return aws_mqttHandle->connCount;
+}

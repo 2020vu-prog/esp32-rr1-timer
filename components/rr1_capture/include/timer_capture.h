@@ -32,3 +32,8 @@ typedef struct _pindef_t
     bool neg_edge;
 
 } pindef_t;
+
+int getGpsInitialAcquisitionSecondsAfterBoot();
+int getGpsUptimeTotalSeconds();
+int getGpsFlutter();
+

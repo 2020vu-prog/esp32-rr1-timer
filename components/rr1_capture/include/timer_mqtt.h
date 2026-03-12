@@ -14,6 +14,7 @@ typedef jsonTag *jsonTagP;
 
 void mqtt_app_start(void);
 int mq_pub64(char *msg);
+int getMqttConnectionCount();
 void mq_pub(char *msg);
 void fmtJson(char *buf, size_t bufs, jsonTagP tagsHead);
 double epoch_double();

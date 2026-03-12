@@ -194,6 +194,7 @@ err:
 }
 static uint64_t softGpsUs = 0;
 static uint64_t realGpsUs = 0;
+static uint64_t staleGpsUs = 0;
 struct PollFunc{
 	void (*func)(struct PollFunc*);
 	uint64_t freqMs;
@@ -362,16 +363,37 @@ bool isSoftGps(uint64_t nowGpsUs )
 	}
 	return true;
 }
+int gpsInitialAcquisitionSecondsAfterBoot=0;
+int gpsUptimeTotalSeconds=0;
+int gpsFlutter=0;
 void pinHandlerGps(esp_probe_recv_data_t *recv_dataP)
 {
 		uint64_t nowGpsUs = esp_timer_get_time();
 
+	if(!gpsInitialAcquisitionSecondsAfterBoot){
+		gpsInitialAcquisitionSecondsAfterBoot = nowGpsUs/1000000;
+	}
+
 	if (isSoftGps(nowGpsUs))
 	{
 		ESP_LOGI(TAG, "pinHandlerGps : skipping soft");
+		if(staleGpsUs!=realGpsUs){
+			staleGpsUs = realGpsUs;
+			gpsFlutter++;
+		}
 
 		return;
 	}
 	realGpsUs= nowGpsUs;
+	gpsUptimeTotalSeconds++;
 	log_gps_pps(recv_dataP);
 }
+int getGpsInitialAcquisitionSecondsAfterBoot(){
+	return gpsInitialAcquisitionSecondsAfterBoot;
+}
+int getGpsUptimeTotalSeconds(){
+	return gpsUptimeTotalSeconds;
+}
+int getGpsFlutter(){
+	return gpsFlutter;
+}	

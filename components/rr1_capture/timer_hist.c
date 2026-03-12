@@ -11,8 +11,7 @@
 #include "esp_timer.h"
 #include "esp_system.h"
 
-
-Timerpb__TimerData * marshalRr1TimerPbTimerDataHealth();
+Timerpb__TimerData *marshalRr1TimerPbTimerDataHealth();
 const static char *TAG = "rr1_capture";
 timer_config_t timerConfig = {
 	clearMs : 10 * 1000,
@@ -254,7 +253,7 @@ int getXmitHistBacklog()
 Timerpb__TimerDataList *marshalRr1TimerPbTimerDataList(lane_transition_t *h, int *hCount);
 int mqPubDataList()
 {
-	int ltCount=0;
+	int ltCount = 0;
 	Timerpb__TimerDataList *tdl = marshalRr1TimerPbTimerDataList(hist, &ltCount);
 	if (!tdl)
 	{
@@ -265,12 +264,13 @@ int mqPubDataList()
 	uint8_t *buffer = malloc(packed_size);
 	timerpb__timer_data_list__pack(tdl, buffer);
 
-	int rc=aba_xmit_b64_json(buffer, packed_size);
+	int rc = aba_xmit_b64_json(buffer, packed_size);
 
 	free(buffer);
 	freeRr1TimerPbTimerDataList(tdl);
 
-	if(rc>0){
+	if (rc > 0)
+	{
 		nextXmitHist = (nextXmitHist + ltCount) & HIST_MAX;
 	}
 	return rc;
@@ -282,7 +282,7 @@ int aba_xmit_b64_json(uint8_t *buffer, size_t packed_size)
 	size_t outlen;
 
 	mbedtls_base64_encode(buffer64, packed_size * 2, &outlen, input, packed_size);
-	char* bj64=aba_b64_json((char *)buffer64);
+	char *bj64 = aba_b64_json((char *)buffer64);
 
 	int rc = mq_pub64(bj64);
 	free(buffer64);
@@ -290,7 +290,8 @@ int aba_xmit_b64_json(uint8_t *buffer, size_t packed_size)
 	return rc;
 }
 // TODO  Health is still due if, message send fails transmission
-bool isHealthDue(){
+bool isHealthDue()
+{
 	static uint64_t lastHealthUs = 0;
 	uint64_t upUs = esp_timer_get_time();
 	if (upUs > lastHealthUs + 30000000)
@@ -305,7 +306,8 @@ Timerpb__TimerDataList *marshalRr1TimerPbTimerDataList(lane_transition_t *h, int
 
 	int tlCount = getXmitHistBacklog();
 	int healthCount = isHealthDue() ? 1 : 0;
-	if(tlCount > 20){
+	if (tlCount > 20)
+	{
 		tlCount = 20; // cap the backlog to avoid creating huge messages
 	}
 	*tlUsed = tlCount;
@@ -318,7 +320,7 @@ Timerpb__TimerDataList *marshalRr1TimerPbTimerDataList(lane_transition_t *h, int
 	;
 	timerpb__timer_data_list__init(tdl);
 
-	tdl->n_timerdata = tlCount+healthCount;
+	tdl->n_timerdata = tlCount + healthCount;
 	tdl->timerdata = malloc(sizeof(Timerpb__TimerData *) * tdl->n_timerdata);
 	for (int x = 0; x < tlCount; x++)
 	{
@@ -327,12 +329,14 @@ Timerpb__TimerDataList *marshalRr1TimerPbTimerDataList(lane_transition_t *h, int
 		tdl->timerdata[x] = marshalRr1TimerPbTimerData(h);
 		ESP_LOGI(TAG, "marshalRr1TimerPbTimerDataList: backlog %d idx %d ticks64 %" PRIu64, tlCount, idx, h->cap_value64);
 	}
-	if(healthCount){
-				tdl->timerdata[tlCount] = marshalRr1TimerPbTimerDataHealth();
+	if (healthCount)
+	{
+		tdl->timerdata[tlCount] = marshalRr1TimerPbTimerDataHealth();
 	}
 	return tdl;
 }
-Timerpb__TimerData * marshalRr1TimerPbTimerDataHealth(){
+Timerpb__TimerData *marshalRr1TimerPbTimerDataHealth()
+{
 
 	ESP_LOGI(TAG, "marshalRr1TimerPbTimerDataHealth: ");
 
@@ -343,12 +347,21 @@ Timerpb__TimerData * marshalRr1TimerPbTimerDataHealth(){
 	timerpb__timer_health__init(td->timerhealth);
 
 	td->timerhealth->has_ramfreekb = true;
-	td->timerhealth->ramfreekb =         esp_get_minimum_free_heap_size()/1024;
+	td->timerhealth->ramfreekb = esp_get_minimum_free_heap_size() / 1024;
 
 	td->timerhealth->has_cputempc = true;
 	td->timerhealth->cputempc = health_cpu_temp();
 
 	td->timerhealth->has_mqttconnections = true;
-	td->timerhealth->mqttconnections = 0;
+	td->timerhealth->mqttconnections = getMqttConnectionCount();
+
+	td->timerhealth->has_gpsflutter = true;
+	td->timerhealth->gpsflutter = getGpsFlutter();
+
+	td->timerhealth->has_gpsuptimetotal = true;
+	td->timerhealth->gpsuptimetotal = getGpsUptimeTotalSeconds();
+
+	td->timerhealth->has_gpsinitialacquisitionsecondsafterboot = true;
+	td->timerhealth->gpsinitialacquisitionsecondsafterboot = getGpsInitialAcquisitionSecondsAfterBoot();
 	return td;
 }
