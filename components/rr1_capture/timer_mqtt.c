@@ -109,7 +109,10 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
 		break;
 	case MQTT_EVENT_DISCONNECTED:
 		ESP_LOGI(TAG, "MQTT_EVENT_DISCONNECTED");
-		aws_mqttHandle->disconnCount++;
+		//ignore spurious disconnects that can happen when esp_mqtt_client_stop is called while a connection is still being established?
+		if(aws_mqttHandle->connCount > aws_mqttHandle->disconnCount){
+			aws_mqttHandle->disconnCount++;
+		}
 
 		aws_mqttHandle->p_client = NULL;
 		break;
@@ -166,6 +169,7 @@ void mqtt_app_start(void)
 	initialize_sntp();
 	esp_mqtt_client_config_t mqtt_cfg = {
 	    //.broker.address.uri = "mqtt://test.mosquitto.org",
+	    .session.disable_clean_session = true,
 	    .broker.address.uri = "mqtt://broker.hivemq.com",
 
 	};
@@ -349,4 +353,8 @@ void fmtJson(char *buf, size_t bufs, jsonTagP tagsHead)
 int getMqttConnectionCount()
 {
 	return aws_mqttHandle->connCount;
+}
+int getMqttRecentLatencyMs()
+{
+	return aws_mqttHandle->recent_msg_latency_us / 1000;
 }

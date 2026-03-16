@@ -340,7 +340,7 @@ Timerpb__TimerDataList *marshalRr1TimerPbTimerDataList(lane_transition_t *h, int
 	tdl->timerdata = malloc(sizeof(Timerpb__TimerData *) * tdl->n_timerdata);
 	for (int x = 0; x < tlCount; x++)
 	{
-		int idx = (nextHist - (tlCount - x)) & HIST_MAX;
+		int idx = (nextXmitHist + x)& HIST_MAX;
 		h = &hist[idx];
 		tdl->timerdata[x] = marshalRr1TimerPbTimerData(h);
 		ESP_LOGI(TAG, "marshalRr1TimerPbTimerDataList: backlog %d idx %d ticks64 %" PRIu64, tlCount, idx, h->cap_value64);
@@ -348,7 +348,12 @@ Timerpb__TimerDataList *marshalRr1TimerPbTimerDataList(lane_transition_t *h, int
 	if (healthCount)
 	{
 		tdl->timerdata[tlCount] = marshalRr1TimerPbTimerDataHealth();
+
+		heap_caps_print_heap_info(MALLOC_CAP_8BIT);
 	}
+
+	tdl->has_prevpubackms=true;
+	tdl->prevpubackms = getMqttRecentLatencyMs();
 	return tdl;
 }
 Timerpb__TimerData *marshalRr1TimerPbTimerDataHealth()
