@@ -206,6 +206,8 @@ Timerpb__TimerData *marshalRr1TimerPbTimerData(lane_transition_t *h)
 	if (h->gps_micros > 0)
 	{
 		tp->stamp->gpstime = malloc(sizeof(Google__Protobuf__Timestamp));
+		google__protobuf__timestamp__init(tp->stamp->gpstime);
+		
 		tp->stamp->gpstime->seconds = h->gps_micros / MEG;
 		tp->stamp->gpstime->nanos = (h->gps_micros % MEG) * 1000;
 	}
