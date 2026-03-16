@@ -1,4 +1,5 @@
 idf_component_register(SRCS "quad_uint32.c" "timer_hist.c" "gps_xlate.c" "timer_mqtt.c" "timer_capture.c" "user_main.c"  "timer_health.c"
+	"timer_stdin.c"
 	INCLUDE_DIRS "include"
 
     REQUIRES esp_wifi mqtt 

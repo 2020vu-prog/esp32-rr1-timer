@@ -35,7 +35,8 @@ typedef struct _rr1MqHandle
 	int disconnCount;
 	int pending_msg_id;
 	int64_t pending_msg_xmit_us;
-	int64_t recent_msg_latency_us;
+	int32_t recent_msg_latency_ms;
+	int32_t max_msg_latency_ms;
 	char *tag;
 } _rr1MqHandle;
 static _rr1MqHandle _aws_mqttHandle = {
@@ -130,10 +131,14 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
 		pubAckPending--;
 		if (aws_mqttHandle->pending_msg_id == event->msg_id)
 		{
-			int64_t latency = esp_timer_get_time() - aws_mqttHandle->pending_msg_xmit_us;
-			aws_mqttHandle->recent_msg_latency_us = latency;
+			int64_t latency_ms = (esp_timer_get_time() - aws_mqttHandle->pending_msg_xmit_us) / 1000;
+			aws_mqttHandle->recent_msg_latency_ms = latency_ms;
 			aws_mqttHandle->pending_msg_id = 0;
-			ESP_LOGI(TAG, "Publish ack received for pending msg id %d latency %" PRIi64 " us", event->msg_id, latency);
+			ESP_LOGI(TAG, "Publish ack received for pending msg id %d latency %" PRIi64 " ms", event->msg_id, latency_ms);
+			if (latency_ms > aws_mqttHandle->max_msg_latency_ms)
+			{
+				aws_mqttHandle->max_msg_latency_ms = latency_ms;
+			}	
 		}
 		break;
 	case MQTT_EVENT_DATA:
@@ -356,5 +361,9 @@ int getMqttConnectionCount()
 }
 int getMqttRecentLatencyMs()
 {
-	return aws_mqttHandle->recent_msg_latency_us / 1000;
+	return aws_mqttHandle->recent_msg_latency_ms ;
+}
+int getMqttMaxLatencyMs()
+{
+	return aws_mqttHandle->max_msg_latency_ms ;
 }

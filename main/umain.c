@@ -28,6 +28,7 @@
 
 #include "quad_uint32.h"
 #include "timer_mqtt.h"
+#include "timer_stdin.h"
 
 // Use the macro: CONFIG_APP_PROJECT_VER
 
@@ -36,6 +37,8 @@ static const char *TAG = "umain";
 
 void app_main(void)
 {
+	  vTaskDelay(pdMS_TO_TICKS(100));
+
     ESP_LOGI(TAG, "OTA example app_main start");
     // Initialize NVS.
     esp_err_t err = nvs_flash_init();
@@ -58,6 +61,7 @@ void app_main(void)
      * Read "Establishing Wi-Fi or Ethernet Connection" section in
      * examples/protocols/README.md for more information about this function.
      */
+    //init_timer_stdin(); stdin messes up flash from usb 
     rr1WifiProv();
     nvs_dumprr1();
 

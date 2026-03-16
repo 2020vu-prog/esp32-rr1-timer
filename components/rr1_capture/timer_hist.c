@@ -399,6 +399,9 @@ Timerpb__TimerData *marshalRr1TimerPbTimerDataHealth()
 	td->timerhealth->has_wifirss = true;
 	td->timerhealth->wifirss = getWifiRssi();
 
+	td->timerhealth->has_maxpublishackms = true;
+	td->timerhealth->maxpublishackms = getMqttMaxLatencyMs();
+
 	td->timerhealth->has_gpsflutter = true;
 	td->timerhealth->gpsflutter = getGpsFlutter();
 
