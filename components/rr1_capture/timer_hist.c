@@ -404,6 +404,10 @@ Timerpb__TimerData *marshalRr1TimerPbTimerDataHealth()
 	td->timerhealth->has_maxpublishackms = true;
 	td->timerhealth->maxpublishackms = getMqttMaxLatencyMs();
 
+	td->timerhealth->has_gpsuptimecontiguous = true;
+	td->timerhealth->gpsuptimecontiguous = getgpsUptimeContiguousSeconds();
+
+	
 	td->timerhealth->has_gpsflutter = true;
 	td->timerhealth->gpsflutter = getGpsFlutter();
 

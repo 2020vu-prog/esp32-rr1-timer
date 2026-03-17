@@ -37,4 +37,4 @@ int getGpsInitialAcquisitionSecondsAfterBoot();
 int getGpsUptimeTotalSeconds();
 int getGpsFlutter();
 bool isGpsEmittingPps();
-
+int getgpsUptimeContiguousSeconds();

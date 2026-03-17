@@ -133,6 +133,8 @@ mcpwm_cap_channel_handle_t capture_channel_setup(pindef_t *pd, mcpwm_cap_timer_h
 	mcpwm_capture_channel_config_t cap_ch_conf = {
 	    .gpio_num = pd->gpio,
 	    .prescale = 1,
+	    //.prescale = 80,
+
 	    // capture on both edge
 	    .flags.neg_edge = pd->neg_edge,
 	    .flags.pos_edge = pd->pos_edge,
@@ -169,6 +171,8 @@ esp_err_t capture_setup(void)
 	mcpwm_cap_timer_handle_t cap_timer = NULL;
 	mcpwm_capture_timer_config_t cap_conf = {
 	    .clk_src = MCPWM_CAPTURE_CLK_SRC_DEFAULT,
+	        .resolution_hz = 1 * 1000 * 1000, // 1MHz, prescaler implicitly handled
+
 	    .group_id = 0,
 	};
 	ESP_ERROR_CHECK(mcpwm_new_capture_timer(&cap_conf, &cap_timer));
@@ -365,6 +369,7 @@ bool isSoftGps(uint64_t nowGpsUs )
 }
 int gpsInitialAcquisitionSecondsAfterBoot=0;
 int gpsUptimeTotalSeconds=0;
+int gpsUptimeContiguousSeconds=0;
 int gpsFlutter=0;
 bool gpsemittingpps=false;
 void pinHandlerGps(esp_probe_recv_data_t *recv_dataP)
@@ -377,6 +382,7 @@ void pinHandlerGps(esp_probe_recv_data_t *recv_dataP)
 	{
 		ESP_LOGI(TAG, "pinHandlerGps : skipping soft");
 		gpsemittingpps = false;
+		gpsUptimeContiguousSeconds	= 0;
 		if(staleGpsUs!=realGpsUs){
 			staleGpsUs = realGpsUs;
 			gpsFlutter++;
@@ -392,6 +398,7 @@ void pinHandlerGps(esp_probe_recv_data_t *recv_dataP)
 	gpsemittingpps = true;
 	realGpsUs= nowGpsUs;
 	gpsUptimeTotalSeconds++;
+	gpsUptimeContiguousSeconds++;
 	log_gps_pps(recv_dataP);
 }
 int getGpsInitialAcquisitionSecondsAfterBoot(){
@@ -406,3 +413,6 @@ int getGpsFlutter(){
 bool isGpsEmittingPps(){
 	return gpsemittingpps;
 }
+int getgpsUptimeContiguousSeconds(){
+	return gpsUptimeContiguousSeconds;
+}	
