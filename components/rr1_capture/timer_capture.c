@@ -15,7 +15,7 @@
 
 #include <math.h>
 #include <time.h>
-#include <uuid.h>
+// #include <uuid.h>
 
 const static char *TAG = "rr1_capture";
 
@@ -267,11 +267,14 @@ void capture_main(void)
     capture_setup();
     ESP_LOGI(TAG, "Install capture timer");
 
+#ifdef CONFIG_UUID_CUSTOM_GENERATION
     uuid_set_mode(UUID_MODE_RANDOM);
     uuid_set_mode(UUID_MODE_VARIANT4);
 
     uuid_init();
+
     const char *uuid_ran = uuid_generate();
+#endif
 
     uint64_t priorv = 0;
     while (1)
@@ -294,7 +297,9 @@ void capture_main(void)
         }
         // mqHealth();
         ESP_LOGI(TAG, "xQueueReceive: top");
+#ifdef CONFIG_UUID_CUSTOM_GENERATION
         ESP_LOGI(TAG, "Generated UUID: %s", uuid_ran);
+#endif
         // wait for echo done signal
         /// uint32_t timer_value = mcpwm_capture_timer_get_value(gcap_timer);
         // uint32_t timer_value = mcpwm_capture_signal_get_value(gcap_timer);
