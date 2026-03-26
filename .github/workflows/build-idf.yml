@@ -1,9 +1,11 @@
+# @format
+
 name: Build with ESP-IDF v5.3
 
 on:
   push:
     branches:
-      - '**'
+      - "**"
 
 jobs:
   build:
@@ -16,7 +18,7 @@ jobs:
       - name: Set up ESP-IDF v5.3
         uses: espressif/esp-idf-action@v2
         with:
-          idf_version: 'v5.3'
+          idf_version: "v5.3"
 
       - name: Install Python dependencies
         run: |
@@ -32,16 +34,3 @@ jobs:
         with:
           name: esp-build
           path: build
-
-
-
-
-x
-
-  
-
-
-
-
-
-
