@@ -51,6 +51,8 @@ void timer_hist_init()
     hist = heap_caps_malloc(size, MALLOC_CAP_SPIRAM);
     ESP_LOGI(TAG, "timer_capture_init: %d :: %p ", size, hist);
     memset(hist, 0, size);
+    test_ghandle();
+    ESP_LOGI(TAG, "timer_capture_init: END");
 }
 uint64_t msecsToTicks(uint64_t ms)
 {
@@ -330,8 +332,6 @@ bool isHealthDue()
 }
 Timerpb__TimerDataList *marshalRr1TimerPbTimerDataList(lane_transition_t *h, int *tlUsed)
 {
-
-    test_ghandle();
 
     int tlCount = getXmitHistBacklog();
     int healthCount = isHealthDue() ? 1 : 0;
