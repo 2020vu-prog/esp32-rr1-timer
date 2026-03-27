@@ -1,5 +1,6 @@
 #include "timer_hist.h"
 #include "stddef.h"
+#include <string.h>
 #include "gps_xlate.h"
 #include "mbedtls/base64.h"
 
