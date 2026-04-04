@@ -45,15 +45,15 @@ inline int inc_hist(int h)
 
 void timer_hist_init()
 {
-    ESP_LOGI(TAG, "timer_capture_init: BEGIN");
+    ESP_LOGI(TAG, "timer_hist_init: BEGIN");
 
     heap_caps_print_heap_info(MALLOC_CAP_SPIRAM);
     size_t size = sizeof(lane_transition_t) * (HIST_MAX + 1);
     hist = heap_caps_malloc(size, MALLOC_CAP_SPIRAM);
-    ESP_LOGI(TAG, "timer_capture_init: %d :: %p ", size, hist);
+    ESP_LOGI(TAG, "timer_hist_init: %d :: %p ", size, hist);
     memset(hist, 0, size);
     test_ghandle();
-    ESP_LOGI(TAG, "timer_capture_init: END");
+    ESP_LOGI(TAG, "timer_hist_init: END");
 }
 uint64_t msecsToTicks(uint64_t ms)
 {

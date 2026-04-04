@@ -30,6 +30,7 @@
 #endif /* CONFIG_EXAMPLE_PROV_TRANSPORT_SOFTAP */
 #include "qrcode.h"
 #include "rr1_wifi.h"
+#include "rr1_blink.h"	
 #include "driver/gpio.h"
 #include <button_gpio.h>
 #include <iot_button.h>

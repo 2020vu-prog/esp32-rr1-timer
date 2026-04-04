@@ -17,6 +17,8 @@ typedef struct
 
 bool isLaneClear(mcpwm_capture_edge_t cap_edge);
 void capture_main(void);
+void capture_main_xtask(void *pvParameters);
+
 typedef void (*PinHandlerFunc)(esp_probe_recv_data_t *);
 typedef struct _pindef_t
 {

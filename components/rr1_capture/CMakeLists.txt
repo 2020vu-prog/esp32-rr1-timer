@@ -6,6 +6,8 @@ idf_component_register(SRCS "quad_uint32.c" "timer_hist.c" "gps_xlate.c" "timer_
     	esp_driver_mcpwm
     	rr1_messages
 	rr1_wifi_prov
+	rr1_blink
+
     PRIV_REQUIRES esp_wifi  esp_driver_gpio esp_driver_gptimer esp_event nvs_flash esp_psram esp_driver_tsens
 )
 
