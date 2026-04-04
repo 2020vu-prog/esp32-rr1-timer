@@ -10,6 +10,7 @@
 #include "timer_hist.h"
 #include "timer_mqtt.h"
 #include "timer_capture.h"
+#include "timer_blink.h"
 #include "quad_uint32.h"
 #include "gps_xlate.h"
 
@@ -225,6 +226,26 @@ void quadWatchdog(PollFunc *pf)
         mcpwm_capture_channel_trigger_soft_catch(gpsPindef->channel_h);
     }
 }
+void awakenPoll(){
+	        esp_probe_recv_data_t recv_data = {
+			.cap_value64 = 0,	
+			.cap_edge = 0,
+			.pin_user_data = NULL,
+
+		};
+
+	xQueueSend(recv_que, &recv_data, 0 ); // Can block
+
+}
+void blinkUserLed(PollFunc *pf)
+{
+    pf->nextMs = do_blink(BLINK_OUTPUT_LED, pf->nowMs);
+}
+void blinkLaser(PollFunc *pf)
+{
+    pf->nextMs = do_blink(BLINK_OUTPUT_LASER, pf->nowMs);
+}
+
 void simulateLaneActivity(PollFunc *pf)
 {
     static bool pup = false;
@@ -257,11 +278,34 @@ PollFunc pollFuncs[] = {
     {.func = mqHealth, .freqMs = 30000, .nextMs = 0},
     {.func = simulateLaneActivity, .freqMs = 10000, .nextMs = 0},
     {.func = quadWatchdog, .freqMs = 45000, .nextMs = 0},
+    {.func = blinkUserLed, .freqMs = 1000, .nextMs = 0},
+    {.func = blinkLaser, .freqMs = 1000, .nextMs = 0},
+
     {.func = NULL, .freqMs = 0, .nextMs = 0} // sentinel
 
 };
+void reset_blink_poll(blink_output_t output)
+{
+	for (int x = 0; pollFuncs[x].func != NULL; x++){
+		if ((output == BLINK_OUTPUT_LED && pollFuncs[x].func == blinkUserLed) ||
+	    	(output == BLINK_OUTPUT_LASER && pollFuncs[x].func == blinkLaser))
+		{
+	    		pollFuncs[x].nextMs = 0; // reset to run immediately
+		}
+    	}	
+	awakenPoll();
+}
+	
+void capture_main_xtask(void *pvParameters)
+{
+    capture_main();
+}
 void capture_main(void)
 {
+    init_blink_gpio();
+    registerApplyCallback(BLINK_OUTPUT_LED, reset_blink_poll);
+    registerApplyCallback(BLINK_OUTPUT_LASER, reset_blink_poll);	
+
 
     quad_h = init_qcontrol();
     capture_setup();
@@ -310,13 +354,17 @@ void capture_main(void)
         // mq_pub(buf);
 
         esp_probe_recv_data_t recv_data = {};
-        if (delayMs < 100)
+        if (delayMs < 10)
         {
-            delayMs = 100;
+            delayMs = 10;
         }
         ESP_LOGI(TAG, "xQueueReceive: waiting for %d ms", delayMs);
         if (xQueueReceive(recv_que, &recv_data, pdMS_TO_TICKS(delayMs)) == pdTRUE)
         {
+	    if(recv_data.cap_value64 == 0 && recv_data.cap_edge == 0 && recv_data.pin_user_data == NULL){
+		ESP_LOGI(TAG, "xQueueReceive: woke for poll");
+		continue; // woke for poll, not isr
+	    }
             apply64bitHysterisis(&recv_data);
             uint64_t elapsed = recv_data.cap_value64 - priorv;
             // pindef_t *pd = (pindef_t *)recv_data.pin_user_data;

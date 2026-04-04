@@ -26,6 +26,7 @@
 #include "esp_system.h"
 #include "esp_timer.h"
 #include "timer_mqtt.h"
+#include "rr1_blink.h"
 
 static const char *TAG = "timer_mqtt";
 typedef struct _rr1MqHandle
@@ -105,11 +106,13 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
 		// ESP_LOGI(TAG, "sent publish successful, msg_id=%d", msg_id);
 		aws_mqttHandle->p_client = client;
 
+		apply_blink_pattern(BLINK_OUTPUT_LED, BLINK_PATTERN_OK);
 		aws_mqttHandle->connCount++;
 		mq_pub("MQTT_EVENT_CONNECTED");
 		break;
 	case MQTT_EVENT_DISCONNECTED:
 		ESP_LOGI(TAG, "MQTT_EVENT_DISCONNECTED");
+		apply_blink_pattern(BLINK_OUTPUT_LED, BLINK_PATTERN_MQTT_ERROR);
 		//ignore spurious disconnects that can happen when esp_mqtt_client_stop is called while a connection is still being established?
 		if(aws_mqttHandle->connCount > aws_mqttHandle->disconnCount){
 			aws_mqttHandle->disconnCount++;
