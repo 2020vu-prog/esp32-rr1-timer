@@ -4,6 +4,8 @@
 
 #define GPIO_PIN_LASER 7
 #define GPIO_PIN_LED 27
+
+bool error_recap[ERROR_PRI_MAX];
 typedef struct
 {
 	bool state;
@@ -35,7 +37,7 @@ static timer_action_t fastBlinkTemplate[] = {
     {},
 
 };
-static timer_action_t reserDelayTemplate[] = {
+static timer_action_t resetDelayTemplate[] = {
 
     {.state = false, .period_ms = 1500},
     {},
@@ -43,27 +45,38 @@ static timer_action_t reserDelayTemplate[] = {
 };
 
 static timer_repeat_t fastBlink2[] = {
+    {
+	.actions = resetDelayTemplate,
+	.repeat_count = 1,
+    },
 
     {
 	.actions = fastBlinkTemplate,
 	.repeat_count = 2,
     },
-    {
-	.actions = reserDelayTemplate,
-	.repeat_count = 1,
-    },
     {},
 };
 
 static timer_repeat_t fastBlink3[] = {
-
+    {
+	.actions = resetDelayTemplate,
+	.repeat_count = 1,
+    },
     {
 	.actions = fastBlinkTemplate,
 	.repeat_count = 3,
     },
+    {},
+};
+
+static timer_repeat_t fastBlink4[] = {
     {
-	.actions = reserDelayTemplate,
+	.actions = resetDelayTemplate,
 	.repeat_count = 1,
+    },
+    {
+	.actions = fastBlinkTemplate,
+	.repeat_count = 4,
     },
     {},
 };
@@ -93,16 +106,51 @@ blink_handler_t ledBlinkHandler = {
 blink_handler_t *get_blink_handler(enum blink_output_t output);
 timer_action_t *get_current_action(blink_handler_t *handler);
 void advance_blink_handler(blink_handler_t *handler);
+void set_error_priority(enum error_pri_t pri, bool isActive)
+{
+	if (pri <= ERROR_PRI_NONE || pri >= ERROR_PRI_MAX)
+		return; // Handle invalid priority
+
+	error_recap[pri] = isActive;
+	enum error_pri_t lowest_active_pri = ERROR_PRI_NONE;
+	for (int i = ERROR_PRI_NONE; i < ERROR_PRI_MAX; i++)
+	{
+		if (error_recap[i])
+		{
+			lowest_active_pri = i;
+			break;
+		}
+	}
+	// Apply the corresponding blink pattern based on the highest active error priority
+	switch (lowest_active_pri)
+	{
+	case ERROR_PRI_WIFI_PROVISIONING:
+		apply_blink_pattern(BLINK_OUTPUT_LED, BLINK_PATTERN_WIFI_PROVISIONING_ERROR);
+		break;
+	case ERROR_PRI_WIFI_CONNECTION:
+		apply_blink_pattern(BLINK_OUTPUT_LED, BLINK_PATTERN_WIFI_CONNECTION_ERROR);
+		break;
+	case ERROR_PRI_MQTT:
+		apply_blink_pattern(BLINK_OUTPUT_LED, BLINK_PATTERN_MQTT_ERROR);
+		break;
+	default:
+		apply_blink_pattern(BLINK_OUTPUT_LED, BLINK_PATTERN_OK);
+		break;
+	}
+}
 timer_repeat_t *get_blink_pattern(enum blink_pattern_t pattern)
 {
 	switch (pattern)
 	{
-	case BLINK_PATTERN_WIFI_ERROR:
+	case BLINK_PATTERN_WIFI_PROVISIONING_ERROR:
 		return fastBlink2;
+	case BLINK_PATTERN_WIFI_CONNECTION_ERROR:
+		return fastBlink3;
+	case BLINK_PATTERN_MQTT_ERROR:
+		return fastBlink4;
+
 	case BLINK_PATTERN_OK:
 		return longSlowBlink;
-	case BLINK_PATTERN_MQTT_ERROR:
-		return fastBlink3;
 	default:
 		return NULL; // Handle invalid pattern type
 	}
@@ -124,7 +172,7 @@ void apply_blink_pattern(blink_output_t output, enum blink_pattern_t pattern)
 	if (tgt_handler->applyCallback)
 	{
 		tgt_handler->applyCallback(output);
-	}	
+	}
 }
 
 blink_handler_t *get_blink_handler(enum blink_output_t output)
@@ -222,12 +270,20 @@ void init_blink_gpio()
 	io_conf.intr_type = GPIO_INTR_DISABLE;
 	io_conf.mode = GPIO_MODE_OUTPUT;
 
-	//io_conf.pin_bit_mask = (1ULL << GPIO_PIN_LED);
+	// io_conf.pin_bit_mask = (1ULL << GPIO_PIN_LED);
 	io_conf.pin_bit_mask = (1ULL << GPIO_PIN_LASER) | (1ULL << GPIO_PIN_LED);
 	io_conf.pull_down_en = GPIO_PULLDOWN_DISABLE;
 	io_conf.pull_up_en = GPIO_PULLUP_DISABLE;
 	gpio_config(&io_conf);
 }
+void init_blink()
+{
+	init_blink_gpio();
+	error_recap[ERROR_PRI_WIFI_PROVISIONING] = true;
+	error_recap[ERROR_PRI_WIFI_CONNECTION] = true;
+	error_recap[ERROR_PRI_MQTT] = true;
+}
+
 void registerApplyCallback(enum blink_output_t output, applyCallbackFunc f)
 {
 

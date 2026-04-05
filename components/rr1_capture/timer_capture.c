@@ -302,7 +302,7 @@ void capture_main_xtask(void *pvParameters)
 }
 void capture_main(void)
 {
-    init_blink_gpio();
+    init_blink();
     registerApplyCallback(BLINK_OUTPUT_LED, reset_blink_poll);
     registerApplyCallback(BLINK_OUTPUT_LASER, reset_blink_poll);	
 
