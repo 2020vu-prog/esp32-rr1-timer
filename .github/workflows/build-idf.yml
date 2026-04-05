@@ -1,6 +1,6 @@
 # @format
 
-name: Build with ESP-IDF v5.3
+name: Build with ESP-IDF v5.5.3
 
 on:
   push:
@@ -21,21 +21,8 @@ jobs:
           esp_idf_version: "v5.5.3"
           target: esp32c5
 
-      - name: Install Python dependencies
-        run: |
-          python -m pip install --upgrade pip
-          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-
-      - name: Build target
-        run: |
-          idf.py set-target esp32c5
-
-      - name: Build project
-        run: |
-          idf.py -B build build
-
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
           name: esp-build
-          path: build
+          path: build/ota_cjw.bin
