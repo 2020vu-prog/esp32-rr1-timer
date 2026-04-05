@@ -156,6 +156,7 @@ static void event_handler(void *arg, esp_event_base_t event_base,
         }
         case WIFI_PROV_CRED_SUCCESS:
             ESP_LOGI(TAG, "Provisioning successful");
+	    set_error_priority(ERROR_PRI_WIFI_PROVISIONING, false);
             break;
         case WIFI_PROV_END:
             /* De-initialize manager once provisioning is finished */
@@ -173,6 +174,7 @@ static void event_handler(void *arg, esp_event_base_t event_base,
             esp_wifi_connect();
             break;
         case WIFI_EVENT_STA_DISCONNECTED:
+	    set_error_priority(ERROR_PRI_WIFI_CONNECTION, true);
             ESP_LOGI(TAG, "Disconnected. Connecting to the AP again...");
             esp_wifi_connect();
             break;
@@ -190,7 +192,8 @@ static void event_handler(void *arg, esp_event_base_t event_base,
     }
     else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP)
     {
-        ip_event_got_ip_t *event = (ip_event_got_ip_t *)event_data;
+        set_error_priority(ERROR_PRI_WIFI_CONNECTION, false);
+	ip_event_got_ip_t *event = (ip_event_got_ip_t *)event_data;
         ESP_LOGI(TAG, "Connected with IP Address:" IPSTR, IP2STR(&event->ip_info.ip));
         snprintf(wifi_ip, 20, IPSTR, IP2STR(&event->ip_info.ip));
         /* Signal main application to continue execution */
@@ -342,6 +345,7 @@ static void button_single_click_cb(void *arg, void *usr_data)
     // wifi_prov_mgr_reset_sm_state_for_reprovision();
     wifi_prov_mgr_reset_provisioning();
 
+    set_error_priority(ERROR_PRI_WIFI_PROVISIONING, true);
     vTaskDelay(10000 / portTICK_PERIOD_MS);
 
     esp_restart();
@@ -597,6 +601,7 @@ void rr1WifiProv(void)
     {
         ESP_LOGI(TAG, "Already provisioned, starting Wi-Fi STA");
 
+	set_error_priority(ERROR_PRI_WIFI_PROVISIONING, false);
         /* We don't need the manager as device is already provisioned,
          * so let's release it's resources */
         wifi_prov_mgr_deinit();
