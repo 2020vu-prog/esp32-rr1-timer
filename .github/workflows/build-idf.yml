@@ -25,4 +25,4 @@ jobs:
         uses: actions/upload-artifact@v6
         with:
           name: esp-build
-          path: build/ota_cjw.bin
+          path: build/esp32-rr1-timer.bin
