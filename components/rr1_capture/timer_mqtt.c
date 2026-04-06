@@ -25,10 +25,12 @@
 #include "time.h"
 #include "esp_system.h"
 #include "esp_timer.h"
+#include "esp_wifi.h"
 #include "timer_mqtt.h"
 #include "rr1_blink.h"
 
 static const char *TAG = "timer_mqtt";
+static char mq_topic[20]="";
 typedef struct _rr1MqHandle
 {
 	esp_mqtt_client_handle_t p_client;
@@ -48,7 +50,22 @@ static _rr1MqHandle _aws_mqttHandle = {
     .pending_msg_xmit_us = 0,
     .tag = "rr1_aws"};
 static rr1MqHandle aws_mqttHandle = &_aws_mqttHandle;
+static void get_device_hostname(char *host_name, size_t max)
+{
+    uint8_t eth_mac[6];
+    const char *host_prefix = "RR1-";
+    esp_wifi_get_mac(WIFI_IF_STA, eth_mac);
+    snprintf(host_name, max, "%s%02X%02X%02X",
+             host_prefix, eth_mac[3], eth_mac[4], eth_mac[5]);
+}
+void init_mq_topic(){
+    char host_name[12];
+    get_device_hostname(host_name, 12);
+    snprintf(mq_topic, 20, "rr1/%s", host_name);
 
+    	ESP_LOGI(TAG, "MQTT topic set to: %s", mq_topic);
+
+}
 // esp_mqtt_client_handle_t p_client = NULL;
 void time_sync_notification_cb(struct timeval *tv)
 {
@@ -97,12 +114,12 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
 		msg_id = esp_mqtt_client_subscribe(client, "/topic/cqos0", 0);
 		ESP_LOGI(TAG, "sent subscribe successful, msg_id=%d", msg_id);
 
-		// msg_id = esp_mqtt_client_subscribe(client, "/topic/cqos1", 1);
+		// msg_id = esp_mqtt_client_subscribe(client, mq_topic, 1);
 		// ESP_LOGI(TAG, "sent subscribe successful, msg_id=%d", msg_id);
 
-		//        msg_id = esp_mqtt_client_unsubscribe(client, "/topic/cqos1");
+		//        msg_id = esp_mqtt_client_unsubscribe(client, mq_topic);
 		//        ESP_LOGI(TAG, "sent unsubscribe successful, msg_id=%d", msg_id);
-		// msg_id = esp_mqtt_client_publish(client, "/topic/cqos1", "data_3", 0, 1, 0);
+		// msg_id = esp_mqtt_client_publish(client, mq_topic, "data_3", 0, 1, 0);
 		// ESP_LOGI(TAG, "sent publish successful, msg_id=%d", msg_id);
 		aws_mqttHandle->p_client = client;
 
@@ -174,6 +191,7 @@ void mqtt_app_start(void)
 		return;
 	}
 	init = true;
+	init_mq_topic();
 	initialize_sntp();
 	esp_mqtt_client_config_t mqtt_cfg = {
 	    //.broker.address.uri = "mqtt://test.mosquitto.org",
@@ -285,7 +303,7 @@ int mq_pub64(char *msg)
 	int msg_id = -9;
 	if (aws_mqttHandle->p_client && aws_mqttHandle->pending_msg_id == 0)
 	{
-		msg_id = esp_mqtt_client_enqueue(aws_mqttHandle->p_client, "/topic/cqos1", msg, 0, 2, 0, true);
+		msg_id = esp_mqtt_client_enqueue(aws_mqttHandle->p_client, mq_topic, msg, 0, 2, 0, true);
 	}
 	else
 	{
@@ -328,7 +346,7 @@ void mq_pub(char *msg)
 		snprintf(buf, bufs, "{\"seq\":%04d, \"msg\":\"%s\", \"t\":\"%.4f\", \"f\":\"%d\", \"up\":%" PRIu64 ", \"conn\":\"%d:%d\",\"minutes\":%d, \"blog\":%d  }",
 			 seq, msg, nowD, fheap, upUs, aws_mqttHandle->connCount, aws_mqttHandle->disconnCount, (int)(upUs / 1000000) / 60, pubAckPending);
 
-		msg_id = esp_mqtt_client_enqueue(aws_mqttHandle->p_client, "/topic/cqos1", buf, 0, 2, 0, true);
+		msg_id = esp_mqtt_client_enqueue(aws_mqttHandle->p_client, mq_topic, buf, 0, 2, 0, true);
 		ESP_LOGI(TAG, "mq_pub sent publish successful, msg_id=%d", msg_id);
 		pubAckPending++;
 
