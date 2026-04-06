@@ -13,7 +13,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up ESP-IDF v5.5.3
         uses: espressif/esp-idf-ci-action@v1
@@ -22,7 +22,7 @@ jobs:
           target: esp32c5
 
       - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: esp-build
           path: build/ota_cjw.bin
