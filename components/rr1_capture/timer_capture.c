@@ -43,15 +43,19 @@ pindef_t pindefs[] = {
         gpio : LANE1_GPIO,
         lane_index : 0,
         pname : "lane1",
-        pinHandlerFunc : pinHandlerLane,
-        pull_down : true,
+        pull_up : true,
+        neg_edge : true,
+        pos_edge : true,
+	pinHandlerFunc : pinHandlerLane,
     },
     {
         gpio : LANE2_GPIO,
         lane_index : 1,
         pname : "lane2",
-        pinHandlerFunc : pinHandlerLane,
-        pull_down : true,
+        pull_up : true,
+        neg_edge : true,
+	pos_edge : true,
+	pinHandlerFunc : pinHandlerLane,
     },
 };
 pindef_t *gpsPindef = &pindefs[0];
@@ -276,7 +280,7 @@ void mqHealth(PollFunc *pf)
 PollFunc pollFuncs[] = {
     {.func = mqPollDataList, .freqMs = 25000, .nextMs = 0},
     {.func = mqHealth, .freqMs = 30000, .nextMs = 0},
-    {.func = simulateLaneActivity, .freqMs = 10000, .nextMs = 0},
+    //{.func = simulateLaneActivity, .freqMs = 10000, .nextMs = 0},
     {.func = quadWatchdog, .freqMs = 45000, .nextMs = 0},
     {.func = blinkUserLed, .freqMs = 1000, .nextMs = 0},
     {.func = blinkLaser, .freqMs = 1000, .nextMs = 0},
