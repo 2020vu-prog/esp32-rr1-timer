@@ -46,7 +46,7 @@ pindef_t pindefs[] = {
         pull_up : true,
         neg_edge : true,
         pos_edge : true,
-	pinHandlerFunc : pinHandlerLane,
+        pinHandlerFunc : pinHandlerLane,
     },
     {
         gpio : LANE2_GPIO,
@@ -54,8 +54,8 @@ pindef_t pindefs[] = {
         pname : "lane2",
         pull_up : true,
         neg_edge : true,
-	pos_edge : true,
-	pinHandlerFunc : pinHandlerLane,
+        pos_edge : true,
+        pinHandlerFunc : pinHandlerLane,
     },
 };
 pindef_t *gpsPindef = &pindefs[0];
@@ -230,16 +230,16 @@ void quadWatchdog(PollFunc *pf)
         mcpwm_capture_channel_trigger_soft_catch(gpsPindef->channel_h);
     }
 }
-void awakenPoll(){
-	        esp_probe_recv_data_t recv_data = {
-			.cap_value64 = 0,	
-			.cap_edge = 0,
-			.pin_user_data = NULL,
+void awakenPoll()
+{
+    esp_probe_recv_data_t recv_data = {
+        .cap_value64 = 0,
+        .cap_edge = 0,
+        .pin_user_data = NULL,
 
-		};
+    };
 
-	xQueueSend(recv_que, &recv_data, 0 ); // Can block
-
+    xQueueSend(recv_que, &recv_data, 0); // Can block
 }
 void blinkUserLed(PollFunc *pf)
 {
@@ -275,11 +275,12 @@ void mqPollDataList()
 void mqHealth(PollFunc *pf)
 {
     mq_pub("health30");
+    mqPubDataList();
 }
 
 PollFunc pollFuncs[] = {
     {.func = mqPollDataList, .freqMs = 25000, .nextMs = 0},
-    {.func = mqHealth, .freqMs = 30000, .nextMs = 0},
+    {.func = mqHealth, .freqMs = 56000, .nextMs = 0},
     //{.func = simulateLaneActivity, .freqMs = 10000, .nextMs = 0},
     {.func = quadWatchdog, .freqMs = 45000, .nextMs = 0},
     {.func = blinkUserLed, .freqMs = 1000, .nextMs = 0},
@@ -290,16 +291,17 @@ PollFunc pollFuncs[] = {
 };
 void reset_blink_poll(blink_output_t output)
 {
-	for (int x = 0; pollFuncs[x].func != NULL; x++){
-		if ((output == BLINK_OUTPUT_LED && pollFuncs[x].func == blinkUserLed) ||
-	    	(output == BLINK_OUTPUT_LASER && pollFuncs[x].func == blinkLaser))
-		{
-	    		pollFuncs[x].nextMs = 0; // reset to run immediately
-		}
-    	}	
-	awakenPoll();
+    for (int x = 0; pollFuncs[x].func != NULL; x++)
+    {
+        if ((output == BLINK_OUTPUT_LED && pollFuncs[x].func == blinkUserLed) ||
+            (output == BLINK_OUTPUT_LASER && pollFuncs[x].func == blinkLaser))
+        {
+            pollFuncs[x].nextMs = 0; // reset to run immediately
+        }
+    }
+    awakenPoll();
 }
-	
+
 void capture_main_xtask(void *pvParameters)
 {
     capture_main();
@@ -308,8 +310,7 @@ void capture_main(void)
 {
     init_blink();
     registerApplyCallback(BLINK_OUTPUT_LED, reset_blink_poll);
-    registerApplyCallback(BLINK_OUTPUT_LASER, reset_blink_poll);	
-
+    registerApplyCallback(BLINK_OUTPUT_LASER, reset_blink_poll);
 
     quad_h = init_qcontrol();
     capture_setup();
@@ -365,10 +366,11 @@ void capture_main(void)
         ESP_LOGI(TAG, "xQueueReceive: waiting for %d ms", delayMs);
         if (xQueueReceive(recv_que, &recv_data, pdMS_TO_TICKS(delayMs)) == pdTRUE)
         {
-	    if(recv_data.cap_value64 == 0 && recv_data.cap_edge == 0 && recv_data.pin_user_data == NULL){
-		ESP_LOGI(TAG, "xQueueReceive: woke for poll");
-		continue; // woke for poll, not isr
-	    }
+            if (recv_data.cap_value64 == 0 && recv_data.cap_edge == 0 && recv_data.pin_user_data == NULL)
+            {
+                ESP_LOGI(TAG, "xQueueReceive: woke for poll");
+                continue; // woke for poll, not isr
+            }
             apply64bitHysterisis(&recv_data);
             uint64_t elapsed = recv_data.cap_value64 - priorv;
             // pindef_t *pd = (pindef_t *)recv_data.pin_user_data;

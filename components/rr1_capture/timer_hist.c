@@ -320,11 +320,12 @@ int aba_xmit_b64_json(uint8_t *buffer, size_t packed_size)
     return rc;
 }
 // TODO  Health is still due if, message send fails transmission
-bool isHealthDue()
+bool isHealthDue(int tlCount)
 {
     static uint64_t lastHealthUs = 0;
     uint64_t upUs = esp_timer_get_time();
-    if (upUs > lastHealthUs + 30000000)
+    int healthIntervalMs = tlCount > 0 ? 30000 : 55000; // if we have data to send, bundle health opportunistically
+    if (upUs > lastHealthUs + (healthIntervalMs * 1000))
     {
         lastHealthUs = upUs;
         return true;
@@ -335,13 +336,13 @@ Timerpb__TimerDataList *marshalRr1TimerPbTimerDataList(lane_transition_t *h, int
 {
 
     int tlCount = getXmitHistBacklog();
-    int healthCount = isHealthDue() ? 1 : 0;
+    int healthCount = isHealthDue(tlCount) ? 1 : 0;
     if (tlCount > 20)
     {
         tlCount = 20; // cap the backlog to avoid creating huge messages
     }
     *tlUsed = tlCount;
-    if (tlCount < 1)
+    if (tlCount < 1 && healthCount < 1)
     {
         ESP_LOGI(TAG, "marshalRr1TimerPbTimerDataList: backlog %d empty", tlCount);
         return NULL;
