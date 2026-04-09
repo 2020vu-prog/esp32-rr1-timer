@@ -29,6 +29,7 @@
 #include "quad_uint32.h"
 #include "timer_mqtt.h"
 #include "timer_stdin.h"
+#include "get_mqtt_creds.h"
 
 // Use the macro: CONFIG_APP_PROJECT_VER
 
@@ -57,7 +58,7 @@ void app_main(void)
     ESP_ERROR_CHECK(esp_netif_init());
     ESP_ERROR_CHECK(esp_event_loop_create_default());
 
-    	xTaskCreate(&capture_main_xtask, "capture_main", 8192, NULL, 5, NULL);
+    xTaskCreate(&capture_main_xtask, "capture_main", 8192, NULL, 5, NULL);
 
     /* This helper function configures Wi-Fi or Ethernet, as selected in menuconfig.
      * Read "Establishing Wi-Fi or Ethernet Connection" section in
@@ -77,10 +78,11 @@ void app_main(void)
 #endif // CONFIG_EXAMPLE_CONNECT_WIFI
 
     esp_wifi_set_ps(WIFI_PS_NONE);
+    https_request_creds();
     mqtt_app_start();
 
     testem();
-  // capture_main();
+    // capture_main();
 
     // TODO:  check for new version. no repeat updates to same ver!
     // xTaskCreate(&simple_ota_example_task, "ota_example_task", 8192, NULL, 5, NULL);
