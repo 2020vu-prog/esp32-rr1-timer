@@ -367,6 +367,18 @@ Timerpb__TimerDataList *marshalRr1TimerPbTimerDataList(lane_transition_t *h, int
 		heap_caps_print_heap_info(MALLOC_CAP_8BIT);
 	}
 
+
+	struct timespec tv;
+	if (clock_gettime(CLOCK_REALTIME, &tv))
+	{
+		perror("error clock_gettime\n");
+	}
+	else
+	{
+		tdl->has_xmitms = true;
+		tdl->xmitms = tv.tv_sec * 1000 + (tv.tv_nsec / 1000000);
+	}
+	
 	tdl->has_prevpubackms = true;
 	tdl->prevpubackms = getMqttRecentLatencyMs();
 	return tdl;
