@@ -20,3 +20,4 @@ int getMqttMaxLatencyMs();
 void mq_pub(char *msg);
 void fmtJson(char *buf, size_t bufs, jsonTagP tagsHead);
 double epoch_double();
+void get_device_hostname(char *host_name, size_t max);
