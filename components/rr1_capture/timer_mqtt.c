@@ -360,6 +360,7 @@ int mq_pub64(char *msg)
 	int msg_id = -9;
 	if (aws_mqttHandle->p_client && aws_mqttHandle->pending_msg_id == 0)
 	{
+		ESP_LOGI(TAG, "mq_pub64 sending publish pending msg  %S ", msg);
 		msg_id = esp_mqtt_client_enqueue(aws_mqttHandle->p_client, mq_topic, msg, 0, 1, 0, true);
 	}
 	else

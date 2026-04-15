@@ -345,7 +345,9 @@ void capture_main(void)
             }
         }
         // mqHealth();
-        ESP_LOGI(TAG, "xQueueReceive: top");
+        const uint64_t elapsedMs = nowMs - (esp_timer_get_time() / 1000);
+
+	ESP_LOGI(TAG, "xQueueReceive: top %d ms", (int)elapsedMs);
 #ifdef CONFIG_UUID_CUSTOM_GENERATION
         ESP_LOGI(TAG, "Generated UUID: %s", uuid_ran);
 #endif
