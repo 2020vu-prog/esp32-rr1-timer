@@ -26,7 +26,7 @@ static timer_repeat_t longSlowBlink[] = {
 	    {.state = false, .period_ms = 500},
 	    {},
 	},
-	.repeat_count = 0xFF, // Repeat indefinitely
+	.repeat_count = 0x1, // Repeat indefinitely
     },
     {},
 };
@@ -81,6 +81,17 @@ static timer_repeat_t fastBlink4[] = {
     {},
 };
 
+static timer_repeat_t fastBlink5[] = {
+    {
+	.actions = resetDelayTemplate,
+	.repeat_count = 1,
+    },
+    {
+	.actions = fastBlinkTemplate,
+	.repeat_count = 5,
+    },
+    {},
+};
 typedef struct blink_handler_t
 {
 	applyCallbackFunc applyCallback;
@@ -130,6 +141,9 @@ void set_error_priority(enum error_pri_t pri, bool isActive)
 	case ERROR_PRI_WIFI_CONNECTION:
 		apply_blink_pattern(BLINK_OUTPUT_LED, BLINK_PATTERN_WIFI_CONNECTION_ERROR);
 		break;
+	case ERROR_PRI_CREDENTIALS:
+		apply_blink_pattern(BLINK_OUTPUT_LED, BLINK_PATTERN_CREDENTIALS_ERROR);
+		break;
 	case ERROR_PRI_MQTT:
 		apply_blink_pattern(BLINK_OUTPUT_LED, BLINK_PATTERN_MQTT_ERROR);
 		break;
@@ -146,8 +160,10 @@ timer_repeat_t *get_blink_pattern(enum blink_pattern_t pattern)
 		return fastBlink2;
 	case BLINK_PATTERN_WIFI_CONNECTION_ERROR:
 		return fastBlink3;
-	case BLINK_PATTERN_MQTT_ERROR:
+	case BLINK_PATTERN_CREDENTIALS_ERROR:
 		return fastBlink4;
+	case BLINK_PATTERN_MQTT_ERROR:
+		return fastBlink5;
 
 	case BLINK_PATTERN_OK:
 		return longSlowBlink;

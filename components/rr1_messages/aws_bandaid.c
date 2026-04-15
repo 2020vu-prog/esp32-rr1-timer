@@ -2,7 +2,6 @@
 #include "esp_heap_caps.h"
 // #include <cjson.h>
 #include <cJSON.h>
-// #include <cJSON/cJSON.h>
 
 #include <string.h>
 

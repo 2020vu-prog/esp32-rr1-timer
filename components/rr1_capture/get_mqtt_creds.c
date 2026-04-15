@@ -6,6 +6,8 @@
 #include "esp_log.h"
 #include <cJSON.h>
 #include "rr1_wifi.h"
+#include "timer_blink.h"
+
 
 #define BUFLEN 10000
 const static char *TAG = "get_mqtt_creds";
@@ -164,8 +166,13 @@ void https_request_creds(void)
 	char host_name[12];
 	get_device_hostname(host_name, 12);
 
+			set_error_priority(ERROR_PRI_CREDENTIALS, true);
+
 	https_request_discover(host_name);
 	https_request_auth(host_name);
+	if(creds.mqtt_host && creds.mqtt_cert && creds.mqtt_key){
+		set_error_priority(ERROR_PRI_CREDENTIALS, false);
+	}
 }
 void https_request_auth(char *host_name)
 {

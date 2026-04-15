@@ -15,7 +15,7 @@ typedef enum blink_pattern_t
 	BLINK_PATTERN_WIFI_CONNECTION_ERROR,
 	BLINK_PATTERN_OK,
 	BLINK_PATTERN_MQTT_ERROR,
-
+	BLINK_PATTERN_CREDENTIALS_ERROR,
 } blink_pattern_t;
 
 typedef enum error_pri_t
@@ -23,6 +23,7 @@ typedef enum error_pri_t
 	ERROR_PRI_NONE,
 	ERROR_PRI_WIFI_PROVISIONING,
 	ERROR_PRI_WIFI_CONNECTION,
+	ERROR_PRI_CREDENTIALS,
 	ERROR_PRI_MQTT,
 	ERROR_PRI_MAX,
 } error_pri_t;
