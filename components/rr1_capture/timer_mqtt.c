@@ -28,9 +28,32 @@
 #include "esp_wifi.h"
 #include "timer_mqtt.h"
 #include "rr1_blink.h"
-
+#include "get_mqtt_creds.h"
 static const char *TAG = "timer_mqtt";
-static char mq_topic[20]="";
+static char mq_topic[30] = "";
+static char mqtt_client_id[12] = "";
+const char *AWS_ROOT_CA_1="\
+-----BEGIN CERTIFICATE-----\n\
+MIIDQTCCAimgAwIBAgITBmyfz5m/jAo54vB4ikPmljZbyjANBgkqhkiG9w0BAQsF\
+ADA5MQswCQYDVQQGEwJVUzEPMA0GA1UEChMGQW1hem9uMRkwFwYDVQQDExBBbWF6\
+b24gUm9vdCBDQSAxMB4XDTE1MDUyNjAwMDAwMFoXDTM4MDExNzAwMDAwMFowOTEL\
+MAkGA1UEBhMCVVMxDzANBgNVBAoTBkFtYXpvbjEZMBcGA1UEAxMQQW1hem9uIFJv\
+b3QgQ0EgMTCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBALJ4gHHKeNXj\
+ca9HgFB0fW7Y14h29Jlo91ghYPl0hAEvrAIthtOgQ3pOsqTQNroBvo3bSMgHFzZM\
+9O6II8c+6zf1tRn4SWiw3te5djgdYZ6k/oI2peVKVuRF4fn9tBb6dNqcmzU5L/qw\
+IFAGbHrQgLKm+a/sRxmPUDgH3KKHOVj4utWp+UhnMJbulHheb4mjUcAwhmahRWa6\
+VOujw5H5SNz/0egwLX0tdHA114gk957EWW67c4cX8jJGKLhD+rcdqsq08p8kDi1L\
+93FcXmn/6pUCyziKrlA4b9v7LWIbxcceVOF34GfID5yHI9Y/QCB/IIDEgEw+OyQm\
+jgSubJrIqg0CAwEAAaNCMEAwDwYDVR0TAQH/BAUwAwEB/zAOBgNVHQ8BAf8EBAMC\
+AYYwHQYDVR0OBBYEFIQYzIU07LwMlJQuCFmcx7IQTgoIMA0GCSqGSIb3DQEBCwUA\
+A4IBAQCY8jdaQZChGsV2USggNiMOruYou6r4lK5IpDB/G/wkjUu0yKGX9rbxenDI\
+U5PMCCjjmCXPI6T53iHTfIUJrU6adTrCC2qJeHZERxhlbI1Bjjt/msv0tadQ1wUs\
+N+gDS63pYaACbvXy8MWy7Vu33PqUXHeeE6V/Uq2V8viTO96LXFvKWlJbYK8U90vv\
+o/ufQJVtMVT8QtPHRh8jrdkPSHCa2XV4cdFyQzR1bldZwgJcJmApzyMZFo6IQ6XU\
+5MsI+yMRQ+hDKXJioaldXgjUkK642M4UwtBV8ob2xJNDd2ZhwLnoQdeXeGADbkpy\
+rqXRfboQnoZsG4q5WTP468SQvvG5\n\
+-----END CERTIFICATE-----";
+
 typedef struct _rr1MqHandle
 {
 	esp_mqtt_client_handle_t p_client;
@@ -50,21 +73,21 @@ static _rr1MqHandle _aws_mqttHandle = {
     .pending_msg_xmit_us = 0,
     .tag = "rr1_aws"};
 static rr1MqHandle aws_mqttHandle = &_aws_mqttHandle;
-static void get_device_hostname(char *host_name, size_t max)
+void get_device_hostname(char *host_name, size_t max)
 {
-    uint8_t eth_mac[6];
-    const char *host_prefix = "RR1-";
-    esp_wifi_get_mac(WIFI_IF_STA, eth_mac);
-    snprintf(host_name, max, "%s%02X%02X%02X",
-             host_prefix, eth_mac[3], eth_mac[4], eth_mac[5]);
+	uint8_t eth_mac[6];
+	const char *host_prefix = "RR1-";
+	esp_wifi_get_mac(WIFI_IF_STA, eth_mac);
+	snprintf(host_name, max, "%s%02X%02X%02X",
+		 host_prefix, eth_mac[3], eth_mac[4], eth_mac[5]);
 }
-void init_mq_topic(){
-    char host_name[12];
-    get_device_hostname(host_name, 12);
-    snprintf(mq_topic, 20, "rr1/%s", host_name);
-
-    	ESP_LOGI(TAG, "MQTT topic set to: %s", mq_topic);
-
+void init_mq_topic()
+{
+	char host_name[12];
+	get_device_hostname(host_name, sizeof(host_name));
+	snprintf(mq_topic, sizeof(mq_topic), "rr1Timer/%s", host_name);
+	snprintf(mqtt_client_id, sizeof(mqtt_client_id), "%s", host_name);
+	ESP_LOGI(TAG, "MQTT topic set to: %s", mq_topic);
 }
 // esp_mqtt_client_handle_t p_client = NULL;
 void time_sync_notification_cb(struct timeval *tv)
@@ -111,9 +134,10 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
 	case MQTT_EVENT_CONNECTED:
 		ESP_LOGI(TAG, "MQTT_EVENT_CONNECTED");
 
+#ifdef DO__SUBSCRIBE
 		msg_id = esp_mqtt_client_subscribe(client, "/topic/cqos0", 0);
 		ESP_LOGI(TAG, "sent subscribe successful, msg_id=%d", msg_id);
-
+#endif
 		// msg_id = esp_mqtt_client_subscribe(client, mq_topic, 1);
 		// ESP_LOGI(TAG, "sent subscribe successful, msg_id=%d", msg_id);
 
@@ -130,8 +154,9 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
 	case MQTT_EVENT_DISCONNECTED:
 		ESP_LOGI(TAG, "MQTT_EVENT_DISCONNECTED");
 		set_error_priority(ERROR_PRI_MQTT, true);
-		//ignore spurious disconnects that can happen when esp_mqtt_client_stop is called while a connection is still being established?
-		if(aws_mqttHandle->connCount > aws_mqttHandle->disconnCount){
+		// ignore spurious disconnects that can happen when esp_mqtt_client_stop is called while a connection is still being established?
+		if (aws_mqttHandle->connCount > aws_mqttHandle->disconnCount)
+		{
 			aws_mqttHandle->disconnCount++;
 		}
 
@@ -158,7 +183,7 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
 			if (latency_ms > aws_mqttHandle->max_msg_latency_ms)
 			{
 				aws_mqttHandle->max_msg_latency_ms = latency_ms;
-			}	
+			}
 		}
 		break;
 	case MQTT_EVENT_DATA:
@@ -193,12 +218,39 @@ void mqtt_app_start(void)
 	init = true;
 	init_mq_topic();
 	initialize_sntp();
+#ifdef HIVEMQTT
 	esp_mqtt_client_config_t mqtt_cfg = {
 	    //.broker.address.uri = "mqtt://test.mosquitto.org",
 	    .session.disable_clean_session = true,
 	    .broker.address.uri = "mqtt://broker.hivemq.com",
 
 	};
+#endif /* HIVEMQTT */
+	const esp_mqtt_client_config_t mqtt_cfg = {
+	    .broker = {
+		.address = {
+		    .hostname = get_mqtt_host(), // AWS IoT Endpoint
+		    .transport = MQTT_TRANSPORT_OVER_SSL,
+		    .port = 8883,
+		},
+		.verification = {
+		    .certificate = AWS_ROOT_CA_1, // Amazon Root CA 1
+		},
+	    },
+	    .credentials = {
+		.authentication = {
+		    .certificate = get_mqtt_cert(), // Device Certificate
+		    .key = get_mqtt_key(),	    // Device Private Key
+		},
+		.client_id = mqtt_client_id, // Must match AWS IoT Thing Name
+	    },
+	    .network = {
+		.timeout_ms = 20000,
+	    },
+	};
+	ESP_LOGI(TAG, "MQTT client configured with host %s, client_id %s", mqtt_cfg.broker.address.hostname, mqtt_cfg.credentials.client_id);
+	ESP_LOGI(TAG, "MQTT client configured with cert %s, key %s", mqtt_cfg.credentials.authentication.certificate, mqtt_cfg.credentials.authentication.key);
+	ESP_LOGI(TAG, "MQTT client configured with root CA cert %s", mqtt_cfg.broker.verification.certificate);	
 #if CONFIG_BROKER_URL_FROM_STDIN
 	char line[128];
 
@@ -234,7 +286,11 @@ void mqtt_app_start(void)
 	esp_mqtt_client_handle_t client = esp_mqtt_client_init(&mqtt_cfg);
 	/* The last argument may be used to pass data to the event handler, in this example mqtt_event_handler */
 	esp_mqtt_client_register_event(client, ESP_EVENT_ANY_ID, mqtt_event_handler, NULL);
+
+	vTaskDelay(1 / portTICK_PERIOD_MS);
+	ESP_LOGI(TAG, "0412Starting MQTT client");
 	esp_mqtt_client_start(client);
+	ESP_LOGI(TAG, "0412MQTT client started");
 }
 
 void NOTapp_main(void)
@@ -300,10 +356,11 @@ void mq_pub_tags(jsonTagP tagsHead)
 }
 int mq_pub64(char *msg)
 {
+	//return -8;
 	int msg_id = -9;
 	if (aws_mqttHandle->p_client && aws_mqttHandle->pending_msg_id == 0)
 	{
-		msg_id = esp_mqtt_client_enqueue(aws_mqttHandle->p_client, mq_topic, msg, 0, 2, 0, true);
+		msg_id = esp_mqtt_client_enqueue(aws_mqttHandle->p_client, mq_topic, msg, 0, 1, 0, true);
 	}
 	else
 	{
@@ -312,7 +369,7 @@ int mq_pub64(char *msg)
 
 	if (msg_id >= 0)
 	{
-		ESP_LOGI(TAG, "mq_pub64 sent publish successful, msg_id=%d", msg_id);
+		ESP_LOGI(TAG, "mq_pub64 sent publish successful, topic [%s] msg_id=%d", mq_topic, msg_id);
 		aws_mqttHandle->pending_msg_id = msg_id;
 		aws_mqttHandle->pending_msg_xmit_us = esp_timer_get_time();
 		pubAckPending++;
@@ -325,6 +382,7 @@ int mq_pub64(char *msg)
 }
 void mq_pub(char *msg)
 {
+	return;
 	static int seq;
 	seq++;
 	uint64_t upUs = esp_timer_get_time();
@@ -382,9 +440,9 @@ int getMqttConnectionCount()
 }
 int getMqttRecentLatencyMs()
 {
-	return aws_mqttHandle->recent_msg_latency_ms ;
+	return aws_mqttHandle->recent_msg_latency_ms;
 }
 int getMqttMaxLatencyMs()
 {
-	return aws_mqttHandle->max_msg_latency_ms ;
+	return aws_mqttHandle->max_msg_latency_ms;
 }

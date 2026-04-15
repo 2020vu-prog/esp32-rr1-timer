@@ -17,3 +17,4 @@ dependencies:
   #   # All dependencies of `main` are public by default.
   #   public: true
   # k0i05/esp_uuid: ^1.2.4
+  espressif/cjson: "^1.7.19"
