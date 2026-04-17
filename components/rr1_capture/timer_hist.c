@@ -284,7 +284,8 @@ int getXmitHistBacklog()
 Timerpb__TimerDataList *marshalRr1TimerPbTimerDataList(lane_transition_t *h, int *hCount);
 int mqPubDataList()
 {
-	if(getMqttPublishCredits() < 1){
+	if (getMqttPublishCredits() < 1)
+	{
 		ESP_LOGW(TAG, "mqPubDataList: no publish credits");
 		return -1;
 	}
@@ -374,7 +375,6 @@ Timerpb__TimerDataList *marshalRr1TimerPbTimerDataList(lane_transition_t *h, int
 		heap_caps_print_heap_info(MALLOC_CAP_8BIT);
 	}
 
-
 	struct timespec tv;
 	if (clock_gettime(CLOCK_REALTIME, &tv))
 	{
@@ -431,7 +431,7 @@ Timerpb__TimerData *marshalRr1TimerPbTimerDataHealth()
 
 	td->timerhealth->has_xmitcredits = true;
 	td->timerhealth->xmitcredits = getMqttPublishCredits();
-	
+
 	td->timerhealth->has_wifirss = true;
 	td->timerhealth->wifirss = getWifiRssi();
 
