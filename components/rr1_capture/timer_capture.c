@@ -272,15 +272,16 @@ void mqPollDataList()
     mqPubDataList();
 }
 
-void mqHealth(PollFunc *pf)
+void mqIncCreditsPeriodically(PollFunc *pf)
 {
-    mq_pub("health30");
+    //mq_pub("health30");
+    incMqttPublishCredits();
     mqPubDataList();
 }
 
 PollFunc pollFuncs[] = {
-    {.func = mqPollDataList, .freqMs = 25000, .nextMs = 0},
-    {.func = mqHealth, .freqMs = 56000, .nextMs = 0},
+    {.func = mqPollDataList, .freqMs = 999999000, .nextMs = 0}, // event driven
+    {.func = mqIncCreditsPeriodically, .freqMs = 15000, .nextMs = 0},
     //{.func = simulateLaneActivity, .freqMs = 10000, .nextMs = 0},
     {.func = quadWatchdog, .freqMs = 45000, .nextMs = 0},
     {.func = blinkUserLed, .freqMs = 1000, .nextMs = 0},
@@ -301,10 +302,47 @@ void reset_blink_poll(blink_output_t output)
     }
     awakenPoll();
 }
+void scheduleMqPubDataList(int delayMs)
+{
+	uint64_t nowMs = esp_timer_get_time() / 1000;
+    for (int x = 0; pollFuncs[x].func != NULL; x++)
+    {
+	if (pollFuncs[x].func == mqPollDataList)
+	{
+	    pollFuncs[x].nextMs =nowMs + delayMs;
+	}
+    }
+    awakenPoll(); //recalc next poll
+}
 
 void capture_main_xtask(void *pvParameters)
 {
     capture_main();
+}
+int doPollAll(){
+
+	const uint64_t nowMs = esp_timer_get_time() / 1000;
+        int delayMs = 10000;
+        for (int x = 0; pollFuncs[x].func != NULL; x++)
+        {
+            if (nowMs >= pollFuncs[x].nextMs)
+            {
+                pollFuncs[x].nowMs = nowMs;
+                pollFuncs[x].nextMs = nowMs + pollFuncs[x].freqMs;
+                pollFuncs[x].func(&pollFuncs[x]);
+            }
+            // min delay until next poll func needs to run
+            if (delayMs > pollFuncs[x].nextMs - nowMs)
+            {
+                delayMs = pollFuncs[x].nextMs - nowMs;
+            }
+        }
+        // mqIncCreditsPeriodically();
+        const uint64_t elapsedMs =  (esp_timer_get_time() / 1000) - nowMs;
+	if(elapsedMs > 2){
+		ESP_LOGW(TAG, "doPollAll: polling is SLOW! %d ms", (int)elapsedMs);
+	}
+	return delayMs;
 }
 void capture_main(void)
 {
@@ -328,26 +366,9 @@ void capture_main(void)
     uint64_t priorv = 0;
     while (1)
     {
-        const uint64_t nowMs = esp_timer_get_time() / 1000;
-        int delayMs = 10000;
-        for (int x = 0; pollFuncs[x].func != NULL; x++)
-        {
-            if (nowMs >= pollFuncs[x].nextMs)
-            {
-                pollFuncs[x].nowMs = nowMs;
-                pollFuncs[x].nextMs = nowMs + pollFuncs[x].freqMs;
-                pollFuncs[x].func(&pollFuncs[x]);
-            }
-            // min delay until next poll func needs to run
-            if (delayMs > pollFuncs[x].nextMs - nowMs)
-            {
-                delayMs = pollFuncs[x].nextMs - nowMs;
-            }
-        }
-        // mqHealth();
-        const uint64_t elapsedMs = nowMs - (esp_timer_get_time() / 1000);
 
-	ESP_LOGI(TAG, "xQueueReceive: top %d ms", (int)elapsedMs);
+	int delayMs = doPollAll();
+	ESP_LOGD(TAG, "xQueueReceive: top");
 #ifdef CONFIG_UUID_CUSTOM_GENERATION
         ESP_LOGI(TAG, "Generated UUID: %s", uuid_ran);
 #endif
@@ -365,7 +386,7 @@ void capture_main(void)
         {
             delayMs = 10;
         }
-        ESP_LOGI(TAG, "xQueueReceive: waiting for %d ms", delayMs);
+        ESP_LOGD(TAG, "xQueueReceive: waiting for %d ms", delayMs);
         if (xQueueReceive(recv_que, &recv_data, pdMS_TO_TICKS(delayMs)) == pdTRUE)
         {
             if (recv_data.cap_value64 == 0 && recv_data.cap_edge == 0 && recv_data.pin_user_data == NULL)
@@ -395,7 +416,12 @@ void capture_main(void)
             }
             if (pd && pd->pinHandlerFunc)
             {
+		uint64_t nowUs = esp_timer_get_time();
                 pd->pinHandlerFunc(&recv_data);
+		uint64_t handlerElapsedUs = esp_timer_get_time() - nowUs;
+		if(handlerElapsedUs > 2000){
+			ESP_LOGW(TAG, "pinHandlerFunc is SLOW! %d ms", (int)handlerElapsedUs / 1000);
+		}
             }
         }
         else
@@ -434,6 +460,7 @@ void apply64bitHysterisisOLD(esp_probe_recv_data_t *recv_dataP)
 void pinHandlerLane(esp_probe_recv_data_t *recv_dataP)
 {
     th_append(recv_dataP);
+    scheduleMqPubDataList(1000);
 }
 // real gps will suppress q timeout and therefore soft gps
 bool isSoftGps(uint64_t nowGpsUs)

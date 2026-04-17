@@ -32,6 +32,8 @@
 static const char *TAG = "timer_mqtt";
 static char mq_topic[30] = "";
 static char mqtt_client_id[12] = "";
+#define MQ_PUBLISH_CREDITS_MAX 100
+static int mq_publish_credits=MQ_PUBLISH_CREDITS_MAX;
 const char *AWS_ROOT_CA_1="\
 -----BEGIN CERTIFICATE-----\n\
 MIIDQTCCAimgAwIBAgITBmyfz5m/jAo54vB4ikPmljZbyjANBgkqhkiG9w0BAQsF\
@@ -447,3 +449,19 @@ int getMqttMaxLatencyMs()
 {
 	return aws_mqttHandle->max_msg_latency_ms;
 }
+int getMqttPublishCredits()
+{
+	return mq_publish_credits;
+}
+void incMqttPublishCredits()
+{
+	if(mq_publish_credits < MQ_PUBLISH_CREDITS_MAX){
+		mq_publish_credits++;
+	}
+}
+void decrementMqttPublishCredits()
+{
+	if(mq_publish_credits > 0){
+		mq_publish_credits--;
+	}
+}	

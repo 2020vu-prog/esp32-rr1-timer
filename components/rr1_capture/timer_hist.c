@@ -167,7 +167,8 @@ void th_append(esp_probe_recv_data_t *recv_dataP)
 
 	nextHist = inc_hist(nextHist);
 	potentialRollCandidate(hpNext);
-	auditCandidateHist();
+	// VERY SLOW
+	// auditCandidateHist();
 	candidateBlock.auditPending = true;
 }
 lane_state_enum getResultState(mcpwm_capture_edge_t cap_edge)
@@ -283,6 +284,11 @@ int getXmitHistBacklog()
 Timerpb__TimerDataList *marshalRr1TimerPbTimerDataList(lane_transition_t *h, int *hCount);
 int mqPubDataList()
 {
+	if(getMqttPublishCredits() < 1){
+		ESP_LOGW(TAG, "mqPubDataList: no publish credits");
+		return -1;
+	}
+
 	int ltCount = 0;
 	Timerpb__TimerDataList *tdl = marshalRr1TimerPbTimerDataList(hist, &ltCount);
 	if (!tdl)
@@ -302,6 +308,7 @@ int mqPubDataList()
 	if (rc > 0)
 	{
 		nextXmitHist = (nextXmitHist + ltCount) & HIST_MAX;
+		decrementMqttPublishCredits();
 	}
 	return rc;
 }
@@ -378,7 +385,7 @@ Timerpb__TimerDataList *marshalRr1TimerPbTimerDataList(lane_transition_t *h, int
 		tdl->has_xmitms = true;
 		tdl->xmitms = tv.tv_sec * 1000 + (tv.tv_nsec / 1000000);
 	}
-	
+
 	tdl->has_prevpubackms = true;
 	tdl->prevpubackms = getMqttRecentLatencyMs();
 	return tdl;
@@ -422,6 +429,9 @@ Timerpb__TimerData *marshalRr1TimerPbTimerDataHealth()
 	td->timerhealth->has_mqttconnections = true;
 	td->timerhealth->mqttconnections = getMqttConnectionCount();
 
+	td->timerhealth->has_xmitcredits = true;
+	td->timerhealth->xmitcredits = getMqttPublishCredits();
+	
 	td->timerhealth->has_wifirss = true;
 	td->timerhealth->wifirss = getWifiRssi();
 
