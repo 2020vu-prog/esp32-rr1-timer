@@ -33,8 +33,8 @@ static const char *TAG = "timer_mqtt";
 static char mq_topic[30] = "";
 static char mqtt_client_id[12] = "";
 #define MQ_PUBLISH_CREDITS_MAX 100
-static int mq_publish_credits=MQ_PUBLISH_CREDITS_MAX;
-const char *AWS_ROOT_CA_1="\
+static int mq_publish_credits = MQ_PUBLISH_CREDITS_MAX;
+const char *AWS_ROOT_CA_1 = "\
 -----BEGIN CERTIFICATE-----\n\
 MIIDQTCCAimgAwIBAgITBmyfz5m/jAo54vB4ikPmljZbyjANBgkqhkiG9w0BAQsF\
 ADA5MQswCQYDVQQGEwJVUzEPMA0GA1UEChMGQW1hem9uMRkwFwYDVQQDExBBbWF6\
@@ -252,7 +252,7 @@ void mqtt_app_start(void)
 	};
 	ESP_LOGI(TAG, "MQTT client configured with host %s, client_id %s", mqtt_cfg.broker.address.hostname, mqtt_cfg.credentials.client_id);
 	ESP_LOGI(TAG, "MQTT client configured with cert %s, key %s", mqtt_cfg.credentials.authentication.certificate, mqtt_cfg.credentials.authentication.key);
-	ESP_LOGI(TAG, "MQTT client configured with root CA cert %s", mqtt_cfg.broker.verification.certificate);	
+	ESP_LOGI(TAG, "MQTT client configured with root CA cert %s", mqtt_cfg.broker.verification.certificate);
 #if CONFIG_BROKER_URL_FROM_STDIN
 	char line[128];
 
@@ -358,7 +358,7 @@ void mq_pub_tags(jsonTagP tagsHead)
 }
 int mq_pub64(char *msg)
 {
-	//return -8;
+	// return -8;
 	int msg_id = -9;
 	if (aws_mqttHandle->p_client && aws_mqttHandle->pending_msg_id == 0)
 	{
@@ -455,13 +455,15 @@ int getMqttPublishCredits()
 }
 void incMqttPublishCredits()
 {
-	if(mq_publish_credits < MQ_PUBLISH_CREDITS_MAX){
+	if (mq_publish_credits < MQ_PUBLISH_CREDITS_MAX)
+	{
 		mq_publish_credits++;
 	}
 }
 void decrementMqttPublishCredits()
 {
-	if(mq_publish_credits > 0){
+	if (mq_publish_credits > 0)
+	{
 		mq_publish_credits--;
 	}
-}	
+}

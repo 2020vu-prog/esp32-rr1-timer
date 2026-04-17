@@ -3,5 +3,4 @@
 
 void func(void)
 {
-
 }

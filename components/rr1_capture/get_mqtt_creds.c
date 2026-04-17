@@ -8,7 +8,6 @@
 #include "rr1_wifi.h"
 #include "timer_blink.h"
 
-
 #define BUFLEN 10000
 const static char *TAG = "get_mqtt_creds";
 typedef struct _rr1_creds
@@ -166,11 +165,12 @@ void https_request_creds(void)
 	char host_name[12];
 	get_device_hostname(host_name, 12);
 
-			set_error_priority(ERROR_PRI_CREDENTIALS, true);
+	set_error_priority(ERROR_PRI_CREDENTIALS, true);
 
 	https_request_discover(host_name);
 	https_request_auth(host_name);
-	if(creds.mqtt_host && creds.mqtt_cert && creds.mqtt_key){
+	if (creds.mqtt_host && creds.mqtt_cert && creds.mqtt_key)
+	{
 		set_error_priority(ERROR_PRI_CREDENTIALS, false);
 	}
 }
@@ -191,7 +191,7 @@ void https_request_auth(char *host_name)
 	// 1. Create JSON payload
 	cJSON *root = cJSON_CreateObject();
 	cJSON_AddStringToObject(root, "TIMER", host_name);
-	char apikey[256]="";
+	char apikey[256] = "";
 	nvs_get_rr1_apikey(apikey, sizeof(apikey));
 	ESP_LOGI(TAG, "NVS returned apiKey [%s]", apikey);
 	cJSON_AddStringToObject(root, "apiKey", apikey);

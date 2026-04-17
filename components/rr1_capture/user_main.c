@@ -54,29 +54,27 @@ static const char TAG[] = "main";
  */
 void cb_connection_ok(void *pvParameter)
 {
-    ip_event_got_ip_t *param = (ip_event_got_ip_t *)pvParameter;
+	ip_event_got_ip_t *param = (ip_event_got_ip_t *)pvParameter;
 
-    /* transform IP to human readable string */
-    char str_ip[16];
-    esp_ip4addr_ntoa(&param->ip_info.ip, str_ip, IP4ADDR_STRLEN_MAX);
+	/* transform IP to human readable string */
+	char str_ip[16];
+	esp_ip4addr_ntoa(&param->ip_info.ip, str_ip, IP4ADDR_STRLEN_MAX);
 
-    ESP_LOGI(TAG, "I have a connection and my IP is %s!", str_ip);
-    mqtt_app_start();
+	ESP_LOGI(TAG, "I have a connection and my IP is %s!", str_ip);
+	mqtt_app_start();
 }
 
 void XXapp_main()
 {
 
+	// wifi_config_init2("my-accessory", "my-password", on_wifi_event);
+	/* your code should go here. Here we simply create a task on core 2 that monitors free heap memory */
+	//  xTaskCreatePinnedToCore(&monitoring_task, "monitoring_task1", 2048, "t1", 1, NULL, 1);
+	// xTaskCreatePinnedToCore(&monitoring_task, "monitoring_task0", 2048, "t0", 1, NULL, 0);
 
-
-    // wifi_config_init2("my-accessory", "my-password", on_wifi_event);
-    /* your code should go here. Here we simply create a task on core 2 that monitors free heap memory */
-    //  xTaskCreatePinnedToCore(&monitoring_task, "monitoring_task1", 2048, "t1", 1, NULL, 1);
-    // xTaskCreatePinnedToCore(&monitoring_task, "monitoring_task0", 2048, "t0", 1, NULL, 0);
-
-    // xTaskCreatePinnedToCore(&alarm_task, "alarm_task1", 4096, "t1", 1, NULL, 1);
-    // xTaskCreatePinnedToCore(&dump_task, "dump_task0", 4096, "t0", 1, NULL, 0);
-    //  perfmon_start();
-    testem();
-    capture_main();
+	// xTaskCreatePinnedToCore(&alarm_task, "alarm_task1", 4096, "t1", 1, NULL, 1);
+	// xTaskCreatePinnedToCore(&dump_task, "dump_task0", 4096, "t0", 1, NULL, 0);
+	//  perfmon_start();
+	testem();
+	capture_main();
 }
