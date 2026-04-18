@@ -13,6 +13,8 @@
 #include "esp_system.h"
 #include "rr1_wifi.h"
 
+static uint64_t lastHealthUs = 0;
+
 Timerpb__TimerData *marshalRr1TimerPbTimerDataHealth();
 const static char *TAG = "rr1_capture";
 timer_config_t timerConfig = {
@@ -281,17 +283,17 @@ int getXmitHistBacklog()
 	int backlog = nextHist - nextXmitHist;
 	return backlog & HIST_MAX;
 }
-Timerpb__TimerDataList *marshalRr1TimerPbTimerDataList(lane_transition_t *h, int *hCount);
+Timerpb__TimerDataList *marshalRr1TimerPbTimerDataList(lane_transition_t *h, marshal_recap_t *mrt);
 int mqPubDataList()
 {
+	marshal_recap_t mrt = {};
 	if (getMqttPublishCredits() < 1)
 	{
 		ESP_LOGW(TAG, "mqPubDataList: no publish credits");
 		return -1;
 	}
 
-	int ltCount = 0;
-	Timerpb__TimerDataList *tdl = marshalRr1TimerPbTimerDataList(hist, &ltCount);
+	Timerpb__TimerDataList *tdl = marshalRr1TimerPbTimerDataList(hist, &mrt);
 	if (!tdl)
 	{
 		ESP_LOGI(TAG, "mqPubDataList: nothing to publish");
@@ -308,7 +310,11 @@ int mqPubDataList()
 
 	if (rc > 0)
 	{
-		nextXmitHist = (nextXmitHist + ltCount) & HIST_MAX;
+		nextXmitHist = (nextXmitHist + mrt.laneTransitionCount) & HIST_MAX;
+		if(mrt.healthMarshalledUs > 0)
+		{
+			lastHealthUs = mrt.healthMarshalledUs;
+		}	
 		decrementMqttPublishCredits();
 	}
 	return rc;
@@ -327,20 +333,20 @@ int aba_xmit_b64_json(uint8_t *buffer, size_t packed_size)
 	free(bj64);
 	return rc;
 }
-// TODO  Health is still due if, message send fails transmission
 bool isHealthDue(int tlCount)
 {
-	static uint64_t lastHealthUs = 0;
 	uint64_t upUs = esp_timer_get_time();
 	int healthIntervalMs = tlCount > 0 ? 30000 : 55000; // if we have data to send, bundle health opportunistically
-	if (upUs > lastHealthUs + (healthIntervalMs * 1000))
+	ESP_LOGI(TAG, "isHealthDue: tlCount %d upUs %" PRIu64 " lastHealthUs %" PRIu64 " healthIntervalMs %d", tlCount, upUs, lastHealthUs, healthIntervalMs);
+	if (lastHealthUs==0 //first time publish, no health sent yet
+	|| upUs > lastHealthUs + (healthIntervalMs * 1000))
 	{
-		lastHealthUs = upUs;
+		// lastHealthUs = upUs;
 		return true;
 	}
 	return false;
 }
-Timerpb__TimerDataList *marshalRr1TimerPbTimerDataList(lane_transition_t *h, int *tlUsed)
+Timerpb__TimerDataList *marshalRr1TimerPbTimerDataList(lane_transition_t *h, marshal_recap_t *mrt)
 {
 
 	int tlCount = getXmitHistBacklog();
@@ -349,7 +355,7 @@ Timerpb__TimerDataList *marshalRr1TimerPbTimerDataList(lane_transition_t *h, int
 	{
 		tlCount = 20; // cap the backlog to avoid creating huge messages
 	}
-	*tlUsed = tlCount;
+	mrt->laneTransitionCount = tlCount;
 	if (tlCount < 1 && healthCount < 1)
 	{
 		ESP_LOGI(TAG, "marshalRr1TimerPbTimerDataList: backlog %d empty", tlCount);
@@ -371,7 +377,7 @@ Timerpb__TimerDataList *marshalRr1TimerPbTimerDataList(lane_transition_t *h, int
 	if (healthCount)
 	{
 		tdl->timerdata[tlCount] = marshalRr1TimerPbTimerDataHealth();
-
+		mrt->healthMarshalledUs = esp_timer_get_time();
 		heap_caps_print_heap_info(MALLOC_CAP_8BIT);
 	}
 

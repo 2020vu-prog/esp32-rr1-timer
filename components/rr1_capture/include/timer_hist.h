@@ -57,6 +57,12 @@ typedef struct
 	char errs[9];
 } lane_finish_t;
 
+typedef struct
+{
+	int laneTransitionCount;
+	uint64_t healthMarshalledUs;
+} marshal_recap_t;
+
 lane_state_enum getResultState(mcpwm_capture_edge_t cap_edge);
 
 #define FE_MISSING_NOSE 'a'

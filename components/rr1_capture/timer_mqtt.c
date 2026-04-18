@@ -27,6 +27,7 @@
 #include "esp_timer.h"
 #include "esp_wifi.h"
 #include "timer_mqtt.h"
+#include "timer_hist.h"
 #include "rr1_blink.h"
 #include "get_mqtt_creds.h"
 static const char *TAG = "timer_mqtt";
@@ -152,6 +153,8 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
 		set_error_priority(ERROR_PRI_MQTT, false);
 		aws_mqttHandle->connCount++;
 		mq_pub("MQTT_EVENT_CONNECTED");
+		mqPubDataList();
+
 		break;
 	case MQTT_EVENT_DISCONNECTED:
 		ESP_LOGI(TAG, "MQTT_EVENT_DISCONNECTED");
@@ -186,6 +189,8 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
 			{
 				aws_mqttHandle->max_msg_latency_ms = latency_ms;
 			}
+			mqPubDataList(); // make sure backlog is caught up
+
 		}
 		break;
 	case MQTT_EVENT_DATA:
