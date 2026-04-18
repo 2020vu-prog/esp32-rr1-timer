@@ -2,7 +2,6 @@
 # in this exact order for cmake to work correctly
 cmake_minimum_required(VERSION 3.16)
 #set(CMAKE_INCLUDE_CURRENT_DIR ON)
-set(EXTRA_COMPONENT_DIRS "build")
 
 
 # Execute git command to get the current branch name
