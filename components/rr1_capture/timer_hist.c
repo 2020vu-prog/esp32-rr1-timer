@@ -12,7 +12,7 @@
 #include "esp_timer.h"
 #include "esp_system.h"
 #include "rr1_wifi.h"
-
+#include "build_meta.h"
 static uint64_t lastHealthUs = 0;
 
 Timerpb__TimerData *marshalRr1TimerPbTimerDataHealth();
@@ -455,6 +455,12 @@ Timerpb__TimerData *marshalRr1TimerPbTimerDataHealth()
 		td->timerhealth->wifiip = malloc(20);
 		snprintf(td->timerhealth->wifiip, 20, "%s", wifi_ip);
 	}
+
+	td->timerhealth->has_versionstamp = true;
+	td->timerhealth->versionstamp = GIT_COMMIT ;
+
+	td->timerhealth->has_gitdirty = true;
+	td->timerhealth->gitdirty = (strstr(GIT_DESCRIBE, "dirty") != NULL);
 
 	td->timerhealth->wirelessmac = malloc(20);
 	get_device_mac(td->timerhealth->wirelessmac, 20);

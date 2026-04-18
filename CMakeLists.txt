@@ -1,6 +1,8 @@
 # The following lines of boilerplate have to be in your project's CMakeLists
 # in this exact order for cmake to work correctly
 cmake_minimum_required(VERSION 3.16)
+#set(CMAKE_INCLUDE_CURRENT_DIR ON)
+set(EXTRA_COMPONENT_DIRS "build")
 
 
 # Execute git command to get the current branch name
@@ -20,14 +22,23 @@ execute_process(
     OUTPUT_STRIP_TRAILING_WHITESPACE
     ERROR_QUIET
 )
-
+# Execute git command to get the standard version (tags/hash)
+execute_process(
+    COMMAND git describe --always 
+    WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+    OUTPUT_VARIABLE GIT_COMMIT
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+    ERROR_QUIET
+)
 # Combine them into PROJECT_VER
 set(PROJECT_VER "${GIT_BRANCH}-${GIT_DESCRIBE}")
 
 string(TIMESTAMP BUILD_EPOCH "%s")
 add_compile_definitions(BUILD_EPOCH=${BUILD_EPOCH})
-
-
+#add_compile_definitions(GIT_BRANCH=${GIT_BRANCH})
+#add_compile_definitions(GIT_DESCRIBE=${GIT_DESCRIBE})
+#add_compile_definitions(GIT_COMMIT=${GIT_COMMIT})
+configure_file(build_meta.h.in build_meta.h)
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
 # "Trim" the build. Include the minimal set of components, main, and anything it depends on.
 idf_build_set_property(MINIMAL_BUILD ON)

@@ -1,0 +1,3 @@
+#define GIT_BRANCH "@GIT_BRANCH@"
+#define GIT_DESCRIBE "@GIT_DESCRIBE@"
+#define GIT_COMMIT 0x@GIT_COMMIT@	
