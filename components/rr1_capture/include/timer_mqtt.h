@@ -1,14 +1,12 @@
 #pragma once
 
-
-struct _rr1MqHandle ;
+struct _rr1MqHandle;
 typedef struct _rr1MqHandle *rr1MqHandle;
-typedef struct _jsonTag
-{
-    char *tag;
-    char *valStr;
-    int64_t val64;
-    struct _jsonTag *next;
+typedef struct _jsonTag {
+  char *tag;
+  char *valStr;
+  int64_t val64;
+  struct _jsonTag *next;
 } jsonTag;
 typedef jsonTag *jsonTagP;
 
