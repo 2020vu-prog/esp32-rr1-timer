@@ -1,2 +1,2 @@
-//void func(void);
+// void func(void);
 #include "timer_blink.h"

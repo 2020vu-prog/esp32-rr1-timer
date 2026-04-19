@@ -25,10 +25,14 @@ typedef struct Timerpb__TimerData Timerpb__TimerData;
 typedef struct Timerpb__TimerDataList Timerpb__TimerDataList;
 typedef struct Timerpb__ElapsedConfig Timerpb__ElapsedConfig;
 typedef struct Timerpb__TimerConfig Timerpb__TimerConfig;
-typedef struct Timerpb__TimerConfigRampPhotoEye Timerpb__TimerConfigRampPhotoEye;
-typedef struct Timerpb__TimerConfigLanePhotoEye Timerpb__TimerConfigLanePhotoEye;
-typedef struct Timerpb__TimerConfigOpposedStarter Timerpb__TimerConfigOpposedStarter;
-typedef struct Timerpb__TimerConfigOpposedPosition Timerpb__TimerConfigOpposedPosition;
+typedef struct Timerpb__TimerConfigRampPhotoEye
+    Timerpb__TimerConfigRampPhotoEye;
+typedef struct Timerpb__TimerConfigLanePhotoEye
+    Timerpb__TimerConfigLanePhotoEye;
+typedef struct Timerpb__TimerConfigOpposedStarter
+    Timerpb__TimerConfigOpposedStarter;
+typedef struct Timerpb__TimerConfigOpposedPosition
+    Timerpb__TimerConfigOpposedPosition;
 typedef struct Timerpb__TimerEventList Timerpb__TimerEventList;
 typedef struct Timerpb__TimerEvent Timerpb__TimerEvent;
 typedef struct Timerpb__EventRacePaddleDrop Timerpb__EventRacePaddleDrop;
@@ -36,22 +40,21 @@ typedef struct Timerpb__EventTimerAvailability Timerpb__EventTimerAvailability;
 typedef struct Timerpb__EventTimerHealthAlert Timerpb__EventTimerHealthAlert;
 typedef struct Timerpb__EventLaneTime Timerpb__EventLaneTime;
 
-
 /* --- enums --- */
 
 typedef enum _Timerpb__PinState {
   TIMERPB__PIN_STATE__CLEAR = 0,
   TIMERPB__PIN_STATE__BLOCKED = 1,
-  TIMERPB__PIN_STATE__UNKNOWN_STATE = 2
-    PROTOBUF_C__FORCE_ENUM_TO_BE_INT_SIZE(TIMERPB__PIN_STATE)
+  TIMERPB__PIN_STATE__UNKNOWN_STATE =
+      2 PROTOBUF_C__FORCE_ENUM_TO_BE_INT_SIZE(TIMERPB__PIN_STATE)
 } Timerpb__PinState;
 typedef enum _Timerpb__PinName {
   TIMERPB__PIN_NAME__lane1 = 1,
   TIMERPB__PIN_NAME__lane2 = 2,
   TIMERPB__PIN_NAME__gpsHz = 3,
   TIMERPB__PIN_NAME__oneHz = 4,
-  TIMERPB__PIN_NAME__UNKNOWN_PIN = 9
-    PROTOBUF_C__FORCE_ENUM_TO_BE_INT_SIZE(TIMERPB__PIN_NAME)
+  TIMERPB__PIN_NAME__UNKNOWN_PIN =
+      9 PROTOBUF_C__FORCE_ENUM_TO_BE_INT_SIZE(TIMERPB__PIN_NAME)
 } Timerpb__PinName;
 typedef enum _Timerpb__SensorLogic {
   TIMERPB__SENSOR_LOGIC__LanePhotoEyes = 1,
@@ -59,14 +62,13 @@ typedef enum _Timerpb__SensorLogic {
   /*
    * single photo eye used to trigger 'start'
    */
-  TIMERPB__SENSOR_LOGIC__RampPhotoEyes = 3
-    PROTOBUF_C__FORCE_ENUM_TO_BE_INT_SIZE(TIMERPB__SENSOR_LOGIC)
+  TIMERPB__SENSOR_LOGIC__RampPhotoEyes =
+      3 PROTOBUF_C__FORCE_ENUM_TO_BE_INT_SIZE(TIMERPB__SENSOR_LOGIC)
 } Timerpb__SensorLogic;
 
 /* --- messages --- */
 
-struct  Timerpb__TimerHealth
-{
+struct Timerpb__TimerHealth {
   ProtobufCMessage base;
   Timerpb__TimerTimeStamp *stamp;
   /*
@@ -122,13 +124,54 @@ struct  Timerpb__TimerHealth
   protobuf_c_boolean has_mqttconnections;
   uint32_t mqttconnections;
 };
-#define TIMERPB__TIMER_HEALTH__INIT \
- { PROTOBUF_C_MESSAGE_INIT (&timerpb__timer_health__descriptor) \
-, NULL, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, NULL, NULL, NULL, NULL, 0, 0, 0, 0, 0, 0, 0, 0, NULL, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 }
+#define TIMERPB__TIMER_HEALTH__INIT                                            \
+  {PROTOBUF_C_MESSAGE_INIT(&timerpb__timer_health__descriptor),                \
+   NULL,                                                                       \
+   0,                                                                          \
+   0,                                                                          \
+   0,                                                                          \
+   0,                                                                          \
+   0,                                                                          \
+   0,                                                                          \
+   0,                                                                          \
+   0,                                                                          \
+   0,                                                                          \
+   0,                                                                          \
+   0,                                                                          \
+   0,                                                                          \
+   NULL,                                                                       \
+   NULL,                                                                       \
+   NULL,                                                                       \
+   NULL,                                                                       \
+   0,                                                                          \
+   0,                                                                          \
+   0,                                                                          \
+   0,                                                                          \
+   0,                                                                          \
+   0,                                                                          \
+   0,                                                                          \
+   0,                                                                          \
+   NULL,                                                                       \
+   0,                                                                          \
+   0,                                                                          \
+   0,                                                                          \
+   0,                                                                          \
+   0,                                                                          \
+   0,                                                                          \
+   0,                                                                          \
+   0,                                                                          \
+   0,                                                                          \
+   0,                                                                          \
+   0,                                                                          \
+   0,                                                                          \
+   0,                                                                          \
+   0,                                                                          \
+   0,                                                                          \
+   0,                                                                          \
+   0,                                                                          \
+   0}
 
-
-struct  Timerpb__TimerPulse
-{
+struct Timerpb__TimerPulse {
   ProtobufCMessage base;
   protobuf_c_boolean has_pinnumber;
   uint32_t pinnumber;
@@ -140,13 +183,19 @@ struct  Timerpb__TimerPulse
   protobuf_c_boolean has_pinname;
   Timerpb__PinName pinname;
 };
-#define TIMERPB__TIMER_PULSE__INIT \
- { PROTOBUF_C_MESSAGE_INIT (&timerpb__timer_pulse__descriptor) \
-, 0, 0, NULL, 0, TIMERPB__PIN_STATE__CLEAR, 0, TIMERPB__PIN_STATE__CLEAR, 0, TIMERPB__PIN_NAME__lane1 }
+#define TIMERPB__TIMER_PULSE__INIT                                             \
+  {PROTOBUF_C_MESSAGE_INIT(&timerpb__timer_pulse__descriptor),                 \
+   0,                                                                          \
+   0,                                                                          \
+   NULL,                                                                       \
+   0,                                                                          \
+   TIMERPB__PIN_STATE__CLEAR,                                                  \
+   0,                                                                          \
+   TIMERPB__PIN_STATE__CLEAR,                                                  \
+   0,                                                                          \
+   TIMERPB__PIN_NAME__lane1}
 
-
-struct  Timerpb__TimerPin
-{
+struct Timerpb__TimerPin {
   ProtobufCMessage base;
   protobuf_c_boolean has_pinnumber;
   int32_t pinnumber;
@@ -156,24 +205,25 @@ struct  Timerpb__TimerPin
   protobuf_c_boolean has_pinname;
   Timerpb__PinName pinname;
 };
-#define TIMERPB__TIMER_PIN__INIT \
- { PROTOBUF_C_MESSAGE_INIT (&timerpb__timer_pin__descriptor) \
-, 0, 0, NULL, 0, TIMERPB__PIN_STATE__CLEAR, 0, TIMERPB__PIN_NAME__lane1 }
+#define TIMERPB__TIMER_PIN__INIT                                               \
+  {PROTOBUF_C_MESSAGE_INIT(&timerpb__timer_pin__descriptor),                   \
+   0,                                                                          \
+   0,                                                                          \
+   NULL,                                                                       \
+   0,                                                                          \
+   TIMERPB__PIN_STATE__CLEAR,                                                  \
+   0,                                                                          \
+   TIMERPB__PIN_NAME__lane1}
 
-
-struct  Timerpb__GpsTickXref
-{
+struct Timerpb__GpsTickXref {
   ProtobufCMessage base;
   size_t n_timertimestamp;
   Timerpb__TimerTimeStamp **timertimestamp;
 };
-#define TIMERPB__GPS_TICK_XREF__INIT \
- { PROTOBUF_C_MESSAGE_INIT (&timerpb__gps_tick_xref__descriptor) \
-, 0,NULL }
+#define TIMERPB__GPS_TICK_XREF__INIT                                           \
+  {PROTOBUF_C_MESSAGE_INIT(&timerpb__gps_tick_xref__descriptor), 0, NULL}
 
-
-struct  Timerpb__TimerTimeStamp
-{
+struct Timerpb__TimerTimeStamp {
   ProtobufCMessage base;
   /*
    *deprecated
@@ -184,26 +234,26 @@ struct  Timerpb__TimerTimeStamp
   protobuf_c_boolean has_tick64;
   uint64_t tick64;
 };
-#define TIMERPB__TIMER_TIME_STAMP__INIT \
- { PROTOBUF_C_MESSAGE_INIT (&timerpb__timer_time_stamp__descriptor) \
-, 0, 0, NULL, 0, 0 }
+#define TIMERPB__TIMER_TIME_STAMP__INIT                                        \
+  {PROTOBUF_C_MESSAGE_INIT(&timerpb__timer_time_stamp__descriptor),            \
+   0,                                                                          \
+   0,                                                                          \
+   NULL,                                                                       \
+   0,                                                                          \
+   0}
 
-
-struct  Timerpb__TimerData
-{
+struct Timerpb__TimerData {
   ProtobufCMessage base;
   Timerpb__TimerPin *timerpin;
   Timerpb__TimerPulse *timerpulse;
   Timerpb__TimerHealth *timerhealth;
   Timerpb__GpsTickXref *gpstickxref;
 };
-#define TIMERPB__TIMER_DATA__INIT \
- { PROTOBUF_C_MESSAGE_INIT (&timerpb__timer_data__descriptor) \
-, NULL, NULL, NULL, NULL }
+#define TIMERPB__TIMER_DATA__INIT                                              \
+  {PROTOBUF_C_MESSAGE_INIT(&timerpb__timer_data__descriptor), NULL, NULL,      \
+   NULL, NULL}
 
-
-struct  Timerpb__TimerDataList
-{
+struct Timerpb__TimerDataList {
   ProtobufCMessage base;
   size_t n_timerdata;
   Timerpb__TimerData **timerdata;
@@ -213,16 +263,20 @@ struct  Timerpb__TimerDataList
   protobuf_c_boolean has_prevpubackms;
   uint64_t prevpubackms;
 };
-#define TIMERPB__TIMER_DATA_LIST__INIT \
- { PROTOBUF_C_MESSAGE_INIT (&timerpb__timer_data_list__descriptor) \
-, 0,NULL, NULL, 0, 0, 0, 0 }
-
+#define TIMERPB__TIMER_DATA_LIST__INIT                                         \
+  {PROTOBUF_C_MESSAGE_INIT(&timerpb__timer_data_list__descriptor),             \
+   0,                                                                          \
+   NULL,                                                                       \
+   NULL,                                                                       \
+   0,                                                                          \
+   0,                                                                          \
+   0,                                                                          \
+   0}
 
 /*
  * not currently sent from RPI.  originates on server
  */
-struct  Timerpb__ElapsedConfig
-{
+struct Timerpb__ElapsedConfig {
   ProtobufCMessage base;
   size_t n_timername;
   char **timername;
@@ -231,13 +285,16 @@ struct  Timerpb__ElapsedConfig
   protobuf_c_boolean has_mintravelms;
   uint32_t mintravelms;
 };
-#define TIMERPB__ELAPSED_CONFIG__INIT \
- { PROTOBUF_C_MESSAGE_INIT (&timerpb__elapsed_config__descriptor) \
-, 0,NULL, 0, 0, 0, 0 }
+#define TIMERPB__ELAPSED_CONFIG__INIT                                          \
+  {PROTOBUF_C_MESSAGE_INIT(&timerpb__elapsed_config__descriptor),              \
+   0,                                                                          \
+   NULL,                                                                       \
+   0,                                                                          \
+   0,                                                                          \
+   0,                                                                          \
+   0}
 
-
-struct  Timerpb__TimerConfig
-{
+struct Timerpb__TimerConfig {
   ProtobufCMessage base;
   char *timername;
   char *timermqttclientid;
@@ -257,26 +314,38 @@ struct  Timerpb__TimerConfig
   uint32_t seq;
   Timerpb__TimerConfigRampPhotoEye *timerconfigrampphotoeye;
 };
-#define TIMERPB__TIMER_CONFIG__INIT \
- { PROTOBUF_C_MESSAGE_INIT (&timerpb__timer_config__descriptor) \
-, NULL, NULL, 0, 0, NULL, NULL, 0, TIMERPB__SENSOR_LOGIC__LanePhotoEyes, NULL, NULL, 0, 0, 0, 0, 0, 0, NULL }
+#define TIMERPB__TIMER_CONFIG__INIT                                            \
+  {PROTOBUF_C_MESSAGE_INIT(&timerpb__timer_config__descriptor),                \
+   NULL,                                                                       \
+   NULL,                                                                       \
+   0,                                                                          \
+   0,                                                                          \
+   NULL,                                                                       \
+   NULL,                                                                       \
+   0,                                                                          \
+   TIMERPB__SENSOR_LOGIC__LanePhotoEyes,                                       \
+   NULL,                                                                       \
+   NULL,                                                                       \
+   0,                                                                          \
+   0,                                                                          \
+   0,                                                                          \
+   0,                                                                          \
+   0,                                                                          \
+   0,                                                                          \
+   NULL}
 
-
-struct  Timerpb__TimerConfigRampPhotoEye
-{
+struct Timerpb__TimerConfigRampPhotoEye {
   ProtobufCMessage base;
   /*
    * eg: lane1:OFF lane2:on
    */
   Timerpb__TimerConfigOpposedPosition *paddlesdropped;
 };
-#define TIMERPB__TIMER_CONFIG_RAMP_PHOTO_EYE__INIT \
- { PROTOBUF_C_MESSAGE_INIT (&timerpb__timer_config_ramp_photo_eye__descriptor) \
-, NULL }
+#define TIMERPB__TIMER_CONFIG_RAMP_PHOTO_EYE__INIT                             \
+  {PROTOBUF_C_MESSAGE_INIT(&timerpb__timer_config_ramp_photo_eye__descriptor), \
+   NULL}
 
-
-struct  Timerpb__TimerConfigLanePhotoEye
-{
+struct Timerpb__TimerConfigLanePhotoEye {
   ProtobufCMessage base;
   /*
    * LP Only
@@ -296,13 +365,18 @@ struct  Timerpb__TimerConfigLanePhotoEye
   protobuf_c_boolean has_clearms;
   uint32_t clearms;
 };
-#define TIMERPB__TIMER_CONFIG_LANE_PHOTO_EYE__INIT \
- { PROTOBUF_C_MESSAGE_INIT (&timerpb__timer_config_lane_photo_eye__descriptor) \
-, 0, 0, 0, 0, 0, 0, 0, 0 }
+#define TIMERPB__TIMER_CONFIG_LANE_PHOTO_EYE__INIT                             \
+  {PROTOBUF_C_MESSAGE_INIT(&timerpb__timer_config_lane_photo_eye__descriptor), \
+   0,                                                                          \
+   0,                                                                          \
+   0,                                                                          \
+   0,                                                                          \
+   0,                                                                          \
+   0,                                                                          \
+   0,                                                                          \
+   0}
 
-
-struct  Timerpb__TimerConfigOpposedStarter
-{
+struct Timerpb__TimerConfigOpposedStarter {
   ProtobufCMessage base;
   /*
    * eg: lane1:OFF lane2:on
@@ -314,77 +388,66 @@ struct  Timerpb__TimerConfigOpposedStarter
   protobuf_c_boolean has_mintransitionms;
   uint32_t mintransitionms;
 };
-#define TIMERPB__TIMER_CONFIG_OPPOSED_STARTER__INIT \
- { PROTOBUF_C_MESSAGE_INIT (&timerpb__timer_config_opposed_starter__descriptor) \
-, 0,NULL, 0, 0, 0, 0 }
+#define TIMERPB__TIMER_CONFIG_OPPOSED_STARTER__INIT                            \
+  {PROTOBUF_C_MESSAGE_INIT(                                                    \
+       &timerpb__timer_config_opposed_starter__descriptor),                    \
+   0,                                                                          \
+   NULL,                                                                       \
+   0,                                                                          \
+   0,                                                                          \
+   0,                                                                          \
+   0}
 
-
-struct  Timerpb__TimerConfigOpposedPosition
-{
+struct Timerpb__TimerConfigOpposedPosition {
   ProtobufCMessage base;
   protobuf_c_boolean has_pinstate;
   Timerpb__PinState pinstate;
   protobuf_c_boolean has_pinname;
   Timerpb__PinName pinname;
 };
-#define TIMERPB__TIMER_CONFIG_OPPOSED_POSITION__INIT \
- { PROTOBUF_C_MESSAGE_INIT (&timerpb__timer_config_opposed_position__descriptor) \
-, 0, TIMERPB__PIN_STATE__CLEAR, 0, TIMERPB__PIN_NAME__lane1 }
+#define TIMERPB__TIMER_CONFIG_OPPOSED_POSITION__INIT                           \
+  {PROTOBUF_C_MESSAGE_INIT(                                                    \
+       &timerpb__timer_config_opposed_position__descriptor),                   \
+   0, TIMERPB__PIN_STATE__CLEAR, 0, TIMERPB__PIN_NAME__lane1}
 
-
-struct  Timerpb__TimerEventList
-{
+struct Timerpb__TimerEventList {
   ProtobufCMessage base;
   size_t n_timerevent;
   Timerpb__TimerEvent **timerevent;
 };
-#define TIMERPB__TIMER_EVENT_LIST__INIT \
- { PROTOBUF_C_MESSAGE_INIT (&timerpb__timer_event_list__descriptor) \
-, 0,NULL }
+#define TIMERPB__TIMER_EVENT_LIST__INIT                                        \
+  {PROTOBUF_C_MESSAGE_INIT(&timerpb__timer_event_list__descriptor), 0, NULL}
 
-
-struct  Timerpb__TimerEvent
-{
+struct Timerpb__TimerEvent {
   ProtobufCMessage base;
   Timerpb__EventLaneTime *eventlanetime;
   Timerpb__EventRacePaddleDrop *eventracepaddledrop;
   Timerpb__EventTimerAvailability *eventtimeravailability;
   Timerpb__EventTimerHealthAlert *eventtimerhealthalert;
 };
-#define TIMERPB__TIMER_EVENT__INIT \
- { PROTOBUF_C_MESSAGE_INIT (&timerpb__timer_event__descriptor) \
-, NULL, NULL, NULL, NULL }
+#define TIMERPB__TIMER_EVENT__INIT                                             \
+  {PROTOBUF_C_MESSAGE_INIT(&timerpb__timer_event__descriptor), NULL, NULL,     \
+   NULL, NULL}
 
-
-struct  Timerpb__EventRacePaddleDrop
-{
+struct Timerpb__EventRacePaddleDrop {
   ProtobufCMessage base;
 };
-#define TIMERPB__EVENT_RACE_PADDLE_DROP__INIT \
- { PROTOBUF_C_MESSAGE_INIT (&timerpb__event_race_paddle_drop__descriptor) \
- }
+#define TIMERPB__EVENT_RACE_PADDLE_DROP__INIT                                  \
+  {PROTOBUF_C_MESSAGE_INIT(&timerpb__event_race_paddle_drop__descriptor)}
 
-
-struct  Timerpb__EventTimerAvailability
-{
+struct Timerpb__EventTimerAvailability {
   ProtobufCMessage base;
 };
-#define TIMERPB__EVENT_TIMER_AVAILABILITY__INIT \
- { PROTOBUF_C_MESSAGE_INIT (&timerpb__event_timer_availability__descriptor) \
- }
+#define TIMERPB__EVENT_TIMER_AVAILABILITY__INIT                                \
+  {PROTOBUF_C_MESSAGE_INIT(&timerpb__event_timer_availability__descriptor)}
 
-
-struct  Timerpb__EventTimerHealthAlert
-{
+struct Timerpb__EventTimerHealthAlert {
   ProtobufCMessage base;
 };
-#define TIMERPB__EVENT_TIMER_HEALTH_ALERT__INIT \
- { PROTOBUF_C_MESSAGE_INIT (&timerpb__event_timer_health_alert__descriptor) \
- }
+#define TIMERPB__EVENT_TIMER_HEALTH_ALERT__INIT                                \
+  {PROTOBUF_C_MESSAGE_INIT(&timerpb__event_timer_health_alert__descriptor)}
 
-
-struct  Timerpb__EventLaneTime
-{
+struct Timerpb__EventLaneTime {
   ProtobufCMessage base;
   protobuf_c_boolean has_lane;
   Timerpb__PinName lane;
@@ -396,440 +459,321 @@ struct  Timerpb__EventLaneTime
   protobuf_c_boolean has_lanepairfound;
   protobuf_c_boolean lanepairfound;
 };
-#define TIMERPB__EVENT_LANE_TIME__INIT \
- { PROTOBUF_C_MESSAGE_INIT (&timerpb__event_lane_time__descriptor) \
-, 0, TIMERPB__PIN_NAME__lane1, NULL, NULL, 0, 0 }
-
+#define TIMERPB__EVENT_LANE_TIME__INIT                                         \
+  {PROTOBUF_C_MESSAGE_INIT(&timerpb__event_lane_time__descriptor),             \
+   0,                                                                          \
+   TIMERPB__PIN_NAME__lane1,                                                   \
+   NULL,                                                                       \
+   NULL,                                                                       \
+   0,                                                                          \
+   0}
 
 /* Timerpb__TimerHealth methods */
-void   timerpb__timer_health__init
-                     (Timerpb__TimerHealth         *message);
-size_t timerpb__timer_health__get_packed_size
-                     (const Timerpb__TimerHealth   *message);
-size_t timerpb__timer_health__pack
-                     (const Timerpb__TimerHealth   *message,
-                      uint8_t             *out);
-size_t timerpb__timer_health__pack_to_buffer
-                     (const Timerpb__TimerHealth   *message,
-                      ProtobufCBuffer     *buffer);
+void timerpb__timer_health__init(Timerpb__TimerHealth *message);
+size_t
+timerpb__timer_health__get_packed_size(const Timerpb__TimerHealth *message);
+size_t timerpb__timer_health__pack(const Timerpb__TimerHealth *message,
+                                   uint8_t *out);
+size_t
+timerpb__timer_health__pack_to_buffer(const Timerpb__TimerHealth *message,
+                                      ProtobufCBuffer *buffer);
 Timerpb__TimerHealth *
-       timerpb__timer_health__unpack
-                     (ProtobufCAllocator  *allocator,
-                      size_t               len,
-                      const uint8_t       *data);
-void   timerpb__timer_health__free_unpacked
-                     (Timerpb__TimerHealth *message,
-                      ProtobufCAllocator *allocator);
+timerpb__timer_health__unpack(ProtobufCAllocator *allocator, size_t len,
+                              const uint8_t *data);
+void timerpb__timer_health__free_unpacked(Timerpb__TimerHealth *message,
+                                          ProtobufCAllocator *allocator);
 /* Timerpb__TimerPulse methods */
-void   timerpb__timer_pulse__init
-                     (Timerpb__TimerPulse         *message);
-size_t timerpb__timer_pulse__get_packed_size
-                     (const Timerpb__TimerPulse   *message);
-size_t timerpb__timer_pulse__pack
-                     (const Timerpb__TimerPulse   *message,
-                      uint8_t             *out);
-size_t timerpb__timer_pulse__pack_to_buffer
-                     (const Timerpb__TimerPulse   *message,
-                      ProtobufCBuffer     *buffer);
-Timerpb__TimerPulse *
-       timerpb__timer_pulse__unpack
-                     (ProtobufCAllocator  *allocator,
-                      size_t               len,
-                      const uint8_t       *data);
-void   timerpb__timer_pulse__free_unpacked
-                     (Timerpb__TimerPulse *message,
-                      ProtobufCAllocator *allocator);
+void timerpb__timer_pulse__init(Timerpb__TimerPulse *message);
+size_t
+timerpb__timer_pulse__get_packed_size(const Timerpb__TimerPulse *message);
+size_t timerpb__timer_pulse__pack(const Timerpb__TimerPulse *message,
+                                  uint8_t *out);
+size_t timerpb__timer_pulse__pack_to_buffer(const Timerpb__TimerPulse *message,
+                                            ProtobufCBuffer *buffer);
+Timerpb__TimerPulse *timerpb__timer_pulse__unpack(ProtobufCAllocator *allocator,
+                                                  size_t len,
+                                                  const uint8_t *data);
+void timerpb__timer_pulse__free_unpacked(Timerpb__TimerPulse *message,
+                                         ProtobufCAllocator *allocator);
 /* Timerpb__TimerPin methods */
-void   timerpb__timer_pin__init
-                     (Timerpb__TimerPin         *message);
-size_t timerpb__timer_pin__get_packed_size
-                     (const Timerpb__TimerPin   *message);
-size_t timerpb__timer_pin__pack
-                     (const Timerpb__TimerPin   *message,
-                      uint8_t             *out);
-size_t timerpb__timer_pin__pack_to_buffer
-                     (const Timerpb__TimerPin   *message,
-                      ProtobufCBuffer     *buffer);
-Timerpb__TimerPin *
-       timerpb__timer_pin__unpack
-                     (ProtobufCAllocator  *allocator,
-                      size_t               len,
-                      const uint8_t       *data);
-void   timerpb__timer_pin__free_unpacked
-                     (Timerpb__TimerPin *message,
-                      ProtobufCAllocator *allocator);
+void timerpb__timer_pin__init(Timerpb__TimerPin *message);
+size_t timerpb__timer_pin__get_packed_size(const Timerpb__TimerPin *message);
+size_t timerpb__timer_pin__pack(const Timerpb__TimerPin *message, uint8_t *out);
+size_t timerpb__timer_pin__pack_to_buffer(const Timerpb__TimerPin *message,
+                                          ProtobufCBuffer *buffer);
+Timerpb__TimerPin *timerpb__timer_pin__unpack(ProtobufCAllocator *allocator,
+                                              size_t len, const uint8_t *data);
+void timerpb__timer_pin__free_unpacked(Timerpb__TimerPin *message,
+                                       ProtobufCAllocator *allocator);
 /* Timerpb__GpsTickXref methods */
-void   timerpb__gps_tick_xref__init
-                     (Timerpb__GpsTickXref         *message);
-size_t timerpb__gps_tick_xref__get_packed_size
-                     (const Timerpb__GpsTickXref   *message);
-size_t timerpb__gps_tick_xref__pack
-                     (const Timerpb__GpsTickXref   *message,
-                      uint8_t             *out);
-size_t timerpb__gps_tick_xref__pack_to_buffer
-                     (const Timerpb__GpsTickXref   *message,
-                      ProtobufCBuffer     *buffer);
+void timerpb__gps_tick_xref__init(Timerpb__GpsTickXref *message);
+size_t
+timerpb__gps_tick_xref__get_packed_size(const Timerpb__GpsTickXref *message);
+size_t timerpb__gps_tick_xref__pack(const Timerpb__GpsTickXref *message,
+                                    uint8_t *out);
+size_t
+timerpb__gps_tick_xref__pack_to_buffer(const Timerpb__GpsTickXref *message,
+                                       ProtobufCBuffer *buffer);
 Timerpb__GpsTickXref *
-       timerpb__gps_tick_xref__unpack
-                     (ProtobufCAllocator  *allocator,
-                      size_t               len,
-                      const uint8_t       *data);
-void   timerpb__gps_tick_xref__free_unpacked
-                     (Timerpb__GpsTickXref *message,
-                      ProtobufCAllocator *allocator);
+timerpb__gps_tick_xref__unpack(ProtobufCAllocator *allocator, size_t len,
+                               const uint8_t *data);
+void timerpb__gps_tick_xref__free_unpacked(Timerpb__GpsTickXref *message,
+                                           ProtobufCAllocator *allocator);
 /* Timerpb__TimerTimeStamp methods */
-void   timerpb__timer_time_stamp__init
-                     (Timerpb__TimerTimeStamp         *message);
-size_t timerpb__timer_time_stamp__get_packed_size
-                     (const Timerpb__TimerTimeStamp   *message);
-size_t timerpb__timer_time_stamp__pack
-                     (const Timerpb__TimerTimeStamp   *message,
-                      uint8_t             *out);
-size_t timerpb__timer_time_stamp__pack_to_buffer
-                     (const Timerpb__TimerTimeStamp   *message,
-                      ProtobufCBuffer     *buffer);
+void timerpb__timer_time_stamp__init(Timerpb__TimerTimeStamp *message);
+size_t timerpb__timer_time_stamp__get_packed_size(
+    const Timerpb__TimerTimeStamp *message);
+size_t timerpb__timer_time_stamp__pack(const Timerpb__TimerTimeStamp *message,
+                                       uint8_t *out);
+size_t timerpb__timer_time_stamp__pack_to_buffer(
+    const Timerpb__TimerTimeStamp *message, ProtobufCBuffer *buffer);
 Timerpb__TimerTimeStamp *
-       timerpb__timer_time_stamp__unpack
-                     (ProtobufCAllocator  *allocator,
-                      size_t               len,
-                      const uint8_t       *data);
-void   timerpb__timer_time_stamp__free_unpacked
-                     (Timerpb__TimerTimeStamp *message,
-                      ProtobufCAllocator *allocator);
+timerpb__timer_time_stamp__unpack(ProtobufCAllocator *allocator, size_t len,
+                                  const uint8_t *data);
+void timerpb__timer_time_stamp__free_unpacked(Timerpb__TimerTimeStamp *message,
+                                              ProtobufCAllocator *allocator);
 /* Timerpb__TimerData methods */
-void   timerpb__timer_data__init
-                     (Timerpb__TimerData         *message);
-size_t timerpb__timer_data__get_packed_size
-                     (const Timerpb__TimerData   *message);
-size_t timerpb__timer_data__pack
-                     (const Timerpb__TimerData   *message,
-                      uint8_t             *out);
-size_t timerpb__timer_data__pack_to_buffer
-                     (const Timerpb__TimerData   *message,
-                      ProtobufCBuffer     *buffer);
-Timerpb__TimerData *
-       timerpb__timer_data__unpack
-                     (ProtobufCAllocator  *allocator,
-                      size_t               len,
-                      const uint8_t       *data);
-void   timerpb__timer_data__free_unpacked
-                     (Timerpb__TimerData *message,
-                      ProtobufCAllocator *allocator);
+void timerpb__timer_data__init(Timerpb__TimerData *message);
+size_t timerpb__timer_data__get_packed_size(const Timerpb__TimerData *message);
+size_t timerpb__timer_data__pack(const Timerpb__TimerData *message,
+                                 uint8_t *out);
+size_t timerpb__timer_data__pack_to_buffer(const Timerpb__TimerData *message,
+                                           ProtobufCBuffer *buffer);
+Timerpb__TimerData *timerpb__timer_data__unpack(ProtobufCAllocator *allocator,
+                                                size_t len,
+                                                const uint8_t *data);
+void timerpb__timer_data__free_unpacked(Timerpb__TimerData *message,
+                                        ProtobufCAllocator *allocator);
 /* Timerpb__TimerDataList methods */
-void   timerpb__timer_data_list__init
-                     (Timerpb__TimerDataList         *message);
-size_t timerpb__timer_data_list__get_packed_size
-                     (const Timerpb__TimerDataList   *message);
-size_t timerpb__timer_data_list__pack
-                     (const Timerpb__TimerDataList   *message,
-                      uint8_t             *out);
-size_t timerpb__timer_data_list__pack_to_buffer
-                     (const Timerpb__TimerDataList   *message,
-                      ProtobufCBuffer     *buffer);
+void timerpb__timer_data_list__init(Timerpb__TimerDataList *message);
+size_t timerpb__timer_data_list__get_packed_size(
+    const Timerpb__TimerDataList *message);
+size_t timerpb__timer_data_list__pack(const Timerpb__TimerDataList *message,
+                                      uint8_t *out);
+size_t
+timerpb__timer_data_list__pack_to_buffer(const Timerpb__TimerDataList *message,
+                                         ProtobufCBuffer *buffer);
 Timerpb__TimerDataList *
-       timerpb__timer_data_list__unpack
-                     (ProtobufCAllocator  *allocator,
-                      size_t               len,
-                      const uint8_t       *data);
-void   timerpb__timer_data_list__free_unpacked
-                     (Timerpb__TimerDataList *message,
-                      ProtobufCAllocator *allocator);
+timerpb__timer_data_list__unpack(ProtobufCAllocator *allocator, size_t len,
+                                 const uint8_t *data);
+void timerpb__timer_data_list__free_unpacked(Timerpb__TimerDataList *message,
+                                             ProtobufCAllocator *allocator);
 /* Timerpb__ElapsedConfig methods */
-void   timerpb__elapsed_config__init
-                     (Timerpb__ElapsedConfig         *message);
-size_t timerpb__elapsed_config__get_packed_size
-                     (const Timerpb__ElapsedConfig   *message);
-size_t timerpb__elapsed_config__pack
-                     (const Timerpb__ElapsedConfig   *message,
-                      uint8_t             *out);
-size_t timerpb__elapsed_config__pack_to_buffer
-                     (const Timerpb__ElapsedConfig   *message,
-                      ProtobufCBuffer     *buffer);
+void timerpb__elapsed_config__init(Timerpb__ElapsedConfig *message);
+size_t
+timerpb__elapsed_config__get_packed_size(const Timerpb__ElapsedConfig *message);
+size_t timerpb__elapsed_config__pack(const Timerpb__ElapsedConfig *message,
+                                     uint8_t *out);
+size_t
+timerpb__elapsed_config__pack_to_buffer(const Timerpb__ElapsedConfig *message,
+                                        ProtobufCBuffer *buffer);
 Timerpb__ElapsedConfig *
-       timerpb__elapsed_config__unpack
-                     (ProtobufCAllocator  *allocator,
-                      size_t               len,
-                      const uint8_t       *data);
-void   timerpb__elapsed_config__free_unpacked
-                     (Timerpb__ElapsedConfig *message,
-                      ProtobufCAllocator *allocator);
+timerpb__elapsed_config__unpack(ProtobufCAllocator *allocator, size_t len,
+                                const uint8_t *data);
+void timerpb__elapsed_config__free_unpacked(Timerpb__ElapsedConfig *message,
+                                            ProtobufCAllocator *allocator);
 /* Timerpb__TimerConfig methods */
-void   timerpb__timer_config__init
-                     (Timerpb__TimerConfig         *message);
-size_t timerpb__timer_config__get_packed_size
-                     (const Timerpb__TimerConfig   *message);
-size_t timerpb__timer_config__pack
-                     (const Timerpb__TimerConfig   *message,
-                      uint8_t             *out);
-size_t timerpb__timer_config__pack_to_buffer
-                     (const Timerpb__TimerConfig   *message,
-                      ProtobufCBuffer     *buffer);
+void timerpb__timer_config__init(Timerpb__TimerConfig *message);
+size_t
+timerpb__timer_config__get_packed_size(const Timerpb__TimerConfig *message);
+size_t timerpb__timer_config__pack(const Timerpb__TimerConfig *message,
+                                   uint8_t *out);
+size_t
+timerpb__timer_config__pack_to_buffer(const Timerpb__TimerConfig *message,
+                                      ProtobufCBuffer *buffer);
 Timerpb__TimerConfig *
-       timerpb__timer_config__unpack
-                     (ProtobufCAllocator  *allocator,
-                      size_t               len,
-                      const uint8_t       *data);
-void   timerpb__timer_config__free_unpacked
-                     (Timerpb__TimerConfig *message,
-                      ProtobufCAllocator *allocator);
+timerpb__timer_config__unpack(ProtobufCAllocator *allocator, size_t len,
+                              const uint8_t *data);
+void timerpb__timer_config__free_unpacked(Timerpb__TimerConfig *message,
+                                          ProtobufCAllocator *allocator);
 /* Timerpb__TimerConfigRampPhotoEye methods */
-void   timerpb__timer_config_ramp_photo_eye__init
-                     (Timerpb__TimerConfigRampPhotoEye         *message);
-size_t timerpb__timer_config_ramp_photo_eye__get_packed_size
-                     (const Timerpb__TimerConfigRampPhotoEye   *message);
-size_t timerpb__timer_config_ramp_photo_eye__pack
-                     (const Timerpb__TimerConfigRampPhotoEye   *message,
-                      uint8_t             *out);
-size_t timerpb__timer_config_ramp_photo_eye__pack_to_buffer
-                     (const Timerpb__TimerConfigRampPhotoEye   *message,
-                      ProtobufCBuffer     *buffer);
+void timerpb__timer_config_ramp_photo_eye__init(
+    Timerpb__TimerConfigRampPhotoEye *message);
+size_t timerpb__timer_config_ramp_photo_eye__get_packed_size(
+    const Timerpb__TimerConfigRampPhotoEye *message);
+size_t timerpb__timer_config_ramp_photo_eye__pack(
+    const Timerpb__TimerConfigRampPhotoEye *message, uint8_t *out);
+size_t timerpb__timer_config_ramp_photo_eye__pack_to_buffer(
+    const Timerpb__TimerConfigRampPhotoEye *message, ProtobufCBuffer *buffer);
 Timerpb__TimerConfigRampPhotoEye *
-       timerpb__timer_config_ramp_photo_eye__unpack
-                     (ProtobufCAllocator  *allocator,
-                      size_t               len,
-                      const uint8_t       *data);
-void   timerpb__timer_config_ramp_photo_eye__free_unpacked
-                     (Timerpb__TimerConfigRampPhotoEye *message,
-                      ProtobufCAllocator *allocator);
+timerpb__timer_config_ramp_photo_eye__unpack(ProtobufCAllocator *allocator,
+                                             size_t len, const uint8_t *data);
+void timerpb__timer_config_ramp_photo_eye__free_unpacked(
+    Timerpb__TimerConfigRampPhotoEye *message, ProtobufCAllocator *allocator);
 /* Timerpb__TimerConfigLanePhotoEye methods */
-void   timerpb__timer_config_lane_photo_eye__init
-                     (Timerpb__TimerConfigLanePhotoEye         *message);
-size_t timerpb__timer_config_lane_photo_eye__get_packed_size
-                     (const Timerpb__TimerConfigLanePhotoEye   *message);
-size_t timerpb__timer_config_lane_photo_eye__pack
-                     (const Timerpb__TimerConfigLanePhotoEye   *message,
-                      uint8_t             *out);
-size_t timerpb__timer_config_lane_photo_eye__pack_to_buffer
-                     (const Timerpb__TimerConfigLanePhotoEye   *message,
-                      ProtobufCBuffer     *buffer);
+void timerpb__timer_config_lane_photo_eye__init(
+    Timerpb__TimerConfigLanePhotoEye *message);
+size_t timerpb__timer_config_lane_photo_eye__get_packed_size(
+    const Timerpb__TimerConfigLanePhotoEye *message);
+size_t timerpb__timer_config_lane_photo_eye__pack(
+    const Timerpb__TimerConfigLanePhotoEye *message, uint8_t *out);
+size_t timerpb__timer_config_lane_photo_eye__pack_to_buffer(
+    const Timerpb__TimerConfigLanePhotoEye *message, ProtobufCBuffer *buffer);
 Timerpb__TimerConfigLanePhotoEye *
-       timerpb__timer_config_lane_photo_eye__unpack
-                     (ProtobufCAllocator  *allocator,
-                      size_t               len,
-                      const uint8_t       *data);
-void   timerpb__timer_config_lane_photo_eye__free_unpacked
-                     (Timerpb__TimerConfigLanePhotoEye *message,
-                      ProtobufCAllocator *allocator);
+timerpb__timer_config_lane_photo_eye__unpack(ProtobufCAllocator *allocator,
+                                             size_t len, const uint8_t *data);
+void timerpb__timer_config_lane_photo_eye__free_unpacked(
+    Timerpb__TimerConfigLanePhotoEye *message, ProtobufCAllocator *allocator);
 /* Timerpb__TimerConfigOpposedStarter methods */
-void   timerpb__timer_config_opposed_starter__init
-                     (Timerpb__TimerConfigOpposedStarter         *message);
-size_t timerpb__timer_config_opposed_starter__get_packed_size
-                     (const Timerpb__TimerConfigOpposedStarter   *message);
-size_t timerpb__timer_config_opposed_starter__pack
-                     (const Timerpb__TimerConfigOpposedStarter   *message,
-                      uint8_t             *out);
-size_t timerpb__timer_config_opposed_starter__pack_to_buffer
-                     (const Timerpb__TimerConfigOpposedStarter   *message,
-                      ProtobufCBuffer     *buffer);
+void timerpb__timer_config_opposed_starter__init(
+    Timerpb__TimerConfigOpposedStarter *message);
+size_t timerpb__timer_config_opposed_starter__get_packed_size(
+    const Timerpb__TimerConfigOpposedStarter *message);
+size_t timerpb__timer_config_opposed_starter__pack(
+    const Timerpb__TimerConfigOpposedStarter *message, uint8_t *out);
+size_t timerpb__timer_config_opposed_starter__pack_to_buffer(
+    const Timerpb__TimerConfigOpposedStarter *message, ProtobufCBuffer *buffer);
 Timerpb__TimerConfigOpposedStarter *
-       timerpb__timer_config_opposed_starter__unpack
-                     (ProtobufCAllocator  *allocator,
-                      size_t               len,
-                      const uint8_t       *data);
-void   timerpb__timer_config_opposed_starter__free_unpacked
-                     (Timerpb__TimerConfigOpposedStarter *message,
-                      ProtobufCAllocator *allocator);
+timerpb__timer_config_opposed_starter__unpack(ProtobufCAllocator *allocator,
+                                              size_t len, const uint8_t *data);
+void timerpb__timer_config_opposed_starter__free_unpacked(
+    Timerpb__TimerConfigOpposedStarter *message, ProtobufCAllocator *allocator);
 /* Timerpb__TimerConfigOpposedPosition methods */
-void   timerpb__timer_config_opposed_position__init
-                     (Timerpb__TimerConfigOpposedPosition         *message);
-size_t timerpb__timer_config_opposed_position__get_packed_size
-                     (const Timerpb__TimerConfigOpposedPosition   *message);
-size_t timerpb__timer_config_opposed_position__pack
-                     (const Timerpb__TimerConfigOpposedPosition   *message,
-                      uint8_t             *out);
-size_t timerpb__timer_config_opposed_position__pack_to_buffer
-                     (const Timerpb__TimerConfigOpposedPosition   *message,
-                      ProtobufCBuffer     *buffer);
+void timerpb__timer_config_opposed_position__init(
+    Timerpb__TimerConfigOpposedPosition *message);
+size_t timerpb__timer_config_opposed_position__get_packed_size(
+    const Timerpb__TimerConfigOpposedPosition *message);
+size_t timerpb__timer_config_opposed_position__pack(
+    const Timerpb__TimerConfigOpposedPosition *message, uint8_t *out);
+size_t timerpb__timer_config_opposed_position__pack_to_buffer(
+    const Timerpb__TimerConfigOpposedPosition *message,
+    ProtobufCBuffer *buffer);
 Timerpb__TimerConfigOpposedPosition *
-       timerpb__timer_config_opposed_position__unpack
-                     (ProtobufCAllocator  *allocator,
-                      size_t               len,
-                      const uint8_t       *data);
-void   timerpb__timer_config_opposed_position__free_unpacked
-                     (Timerpb__TimerConfigOpposedPosition *message,
-                      ProtobufCAllocator *allocator);
+timerpb__timer_config_opposed_position__unpack(ProtobufCAllocator *allocator,
+                                               size_t len, const uint8_t *data);
+void timerpb__timer_config_opposed_position__free_unpacked(
+    Timerpb__TimerConfigOpposedPosition *message,
+    ProtobufCAllocator *allocator);
 /* Timerpb__TimerEventList methods */
-void   timerpb__timer_event_list__init
-                     (Timerpb__TimerEventList         *message);
-size_t timerpb__timer_event_list__get_packed_size
-                     (const Timerpb__TimerEventList   *message);
-size_t timerpb__timer_event_list__pack
-                     (const Timerpb__TimerEventList   *message,
-                      uint8_t             *out);
-size_t timerpb__timer_event_list__pack_to_buffer
-                     (const Timerpb__TimerEventList   *message,
-                      ProtobufCBuffer     *buffer);
+void timerpb__timer_event_list__init(Timerpb__TimerEventList *message);
+size_t timerpb__timer_event_list__get_packed_size(
+    const Timerpb__TimerEventList *message);
+size_t timerpb__timer_event_list__pack(const Timerpb__TimerEventList *message,
+                                       uint8_t *out);
+size_t timerpb__timer_event_list__pack_to_buffer(
+    const Timerpb__TimerEventList *message, ProtobufCBuffer *buffer);
 Timerpb__TimerEventList *
-       timerpb__timer_event_list__unpack
-                     (ProtobufCAllocator  *allocator,
-                      size_t               len,
-                      const uint8_t       *data);
-void   timerpb__timer_event_list__free_unpacked
-                     (Timerpb__TimerEventList *message,
-                      ProtobufCAllocator *allocator);
+timerpb__timer_event_list__unpack(ProtobufCAllocator *allocator, size_t len,
+                                  const uint8_t *data);
+void timerpb__timer_event_list__free_unpacked(Timerpb__TimerEventList *message,
+                                              ProtobufCAllocator *allocator);
 /* Timerpb__TimerEvent methods */
-void   timerpb__timer_event__init
-                     (Timerpb__TimerEvent         *message);
-size_t timerpb__timer_event__get_packed_size
-                     (const Timerpb__TimerEvent   *message);
-size_t timerpb__timer_event__pack
-                     (const Timerpb__TimerEvent   *message,
-                      uint8_t             *out);
-size_t timerpb__timer_event__pack_to_buffer
-                     (const Timerpb__TimerEvent   *message,
-                      ProtobufCBuffer     *buffer);
-Timerpb__TimerEvent *
-       timerpb__timer_event__unpack
-                     (ProtobufCAllocator  *allocator,
-                      size_t               len,
-                      const uint8_t       *data);
-void   timerpb__timer_event__free_unpacked
-                     (Timerpb__TimerEvent *message,
-                      ProtobufCAllocator *allocator);
+void timerpb__timer_event__init(Timerpb__TimerEvent *message);
+size_t
+timerpb__timer_event__get_packed_size(const Timerpb__TimerEvent *message);
+size_t timerpb__timer_event__pack(const Timerpb__TimerEvent *message,
+                                  uint8_t *out);
+size_t timerpb__timer_event__pack_to_buffer(const Timerpb__TimerEvent *message,
+                                            ProtobufCBuffer *buffer);
+Timerpb__TimerEvent *timerpb__timer_event__unpack(ProtobufCAllocator *allocator,
+                                                  size_t len,
+                                                  const uint8_t *data);
+void timerpb__timer_event__free_unpacked(Timerpb__TimerEvent *message,
+                                         ProtobufCAllocator *allocator);
 /* Timerpb__EventRacePaddleDrop methods */
-void   timerpb__event_race_paddle_drop__init
-                     (Timerpb__EventRacePaddleDrop         *message);
-size_t timerpb__event_race_paddle_drop__get_packed_size
-                     (const Timerpb__EventRacePaddleDrop   *message);
-size_t timerpb__event_race_paddle_drop__pack
-                     (const Timerpb__EventRacePaddleDrop   *message,
-                      uint8_t             *out);
-size_t timerpb__event_race_paddle_drop__pack_to_buffer
-                     (const Timerpb__EventRacePaddleDrop   *message,
-                      ProtobufCBuffer     *buffer);
+void timerpb__event_race_paddle_drop__init(
+    Timerpb__EventRacePaddleDrop *message);
+size_t timerpb__event_race_paddle_drop__get_packed_size(
+    const Timerpb__EventRacePaddleDrop *message);
+size_t timerpb__event_race_paddle_drop__pack(
+    const Timerpb__EventRacePaddleDrop *message, uint8_t *out);
+size_t timerpb__event_race_paddle_drop__pack_to_buffer(
+    const Timerpb__EventRacePaddleDrop *message, ProtobufCBuffer *buffer);
 Timerpb__EventRacePaddleDrop *
-       timerpb__event_race_paddle_drop__unpack
-                     (ProtobufCAllocator  *allocator,
-                      size_t               len,
-                      const uint8_t       *data);
-void   timerpb__event_race_paddle_drop__free_unpacked
-                     (Timerpb__EventRacePaddleDrop *message,
-                      ProtobufCAllocator *allocator);
+timerpb__event_race_paddle_drop__unpack(ProtobufCAllocator *allocator,
+                                        size_t len, const uint8_t *data);
+void timerpb__event_race_paddle_drop__free_unpacked(
+    Timerpb__EventRacePaddleDrop *message, ProtobufCAllocator *allocator);
 /* Timerpb__EventTimerAvailability methods */
-void   timerpb__event_timer_availability__init
-                     (Timerpb__EventTimerAvailability         *message);
-size_t timerpb__event_timer_availability__get_packed_size
-                     (const Timerpb__EventTimerAvailability   *message);
-size_t timerpb__event_timer_availability__pack
-                     (const Timerpb__EventTimerAvailability   *message,
-                      uint8_t             *out);
-size_t timerpb__event_timer_availability__pack_to_buffer
-                     (const Timerpb__EventTimerAvailability   *message,
-                      ProtobufCBuffer     *buffer);
+void timerpb__event_timer_availability__init(
+    Timerpb__EventTimerAvailability *message);
+size_t timerpb__event_timer_availability__get_packed_size(
+    const Timerpb__EventTimerAvailability *message);
+size_t timerpb__event_timer_availability__pack(
+    const Timerpb__EventTimerAvailability *message, uint8_t *out);
+size_t timerpb__event_timer_availability__pack_to_buffer(
+    const Timerpb__EventTimerAvailability *message, ProtobufCBuffer *buffer);
 Timerpb__EventTimerAvailability *
-       timerpb__event_timer_availability__unpack
-                     (ProtobufCAllocator  *allocator,
-                      size_t               len,
-                      const uint8_t       *data);
-void   timerpb__event_timer_availability__free_unpacked
-                     (Timerpb__EventTimerAvailability *message,
-                      ProtobufCAllocator *allocator);
+timerpb__event_timer_availability__unpack(ProtobufCAllocator *allocator,
+                                          size_t len, const uint8_t *data);
+void timerpb__event_timer_availability__free_unpacked(
+    Timerpb__EventTimerAvailability *message, ProtobufCAllocator *allocator);
 /* Timerpb__EventTimerHealthAlert methods */
-void   timerpb__event_timer_health_alert__init
-                     (Timerpb__EventTimerHealthAlert         *message);
-size_t timerpb__event_timer_health_alert__get_packed_size
-                     (const Timerpb__EventTimerHealthAlert   *message);
-size_t timerpb__event_timer_health_alert__pack
-                     (const Timerpb__EventTimerHealthAlert   *message,
-                      uint8_t             *out);
-size_t timerpb__event_timer_health_alert__pack_to_buffer
-                     (const Timerpb__EventTimerHealthAlert   *message,
-                      ProtobufCBuffer     *buffer);
+void timerpb__event_timer_health_alert__init(
+    Timerpb__EventTimerHealthAlert *message);
+size_t timerpb__event_timer_health_alert__get_packed_size(
+    const Timerpb__EventTimerHealthAlert *message);
+size_t timerpb__event_timer_health_alert__pack(
+    const Timerpb__EventTimerHealthAlert *message, uint8_t *out);
+size_t timerpb__event_timer_health_alert__pack_to_buffer(
+    const Timerpb__EventTimerHealthAlert *message, ProtobufCBuffer *buffer);
 Timerpb__EventTimerHealthAlert *
-       timerpb__event_timer_health_alert__unpack
-                     (ProtobufCAllocator  *allocator,
-                      size_t               len,
-                      const uint8_t       *data);
-void   timerpb__event_timer_health_alert__free_unpacked
-                     (Timerpb__EventTimerHealthAlert *message,
-                      ProtobufCAllocator *allocator);
+timerpb__event_timer_health_alert__unpack(ProtobufCAllocator *allocator,
+                                          size_t len, const uint8_t *data);
+void timerpb__event_timer_health_alert__free_unpacked(
+    Timerpb__EventTimerHealthAlert *message, ProtobufCAllocator *allocator);
 /* Timerpb__EventLaneTime methods */
-void   timerpb__event_lane_time__init
-                     (Timerpb__EventLaneTime         *message);
-size_t timerpb__event_lane_time__get_packed_size
-                     (const Timerpb__EventLaneTime   *message);
-size_t timerpb__event_lane_time__pack
-                     (const Timerpb__EventLaneTime   *message,
-                      uint8_t             *out);
-size_t timerpb__event_lane_time__pack_to_buffer
-                     (const Timerpb__EventLaneTime   *message,
-                      ProtobufCBuffer     *buffer);
+void timerpb__event_lane_time__init(Timerpb__EventLaneTime *message);
+size_t timerpb__event_lane_time__get_packed_size(
+    const Timerpb__EventLaneTime *message);
+size_t timerpb__event_lane_time__pack(const Timerpb__EventLaneTime *message,
+                                      uint8_t *out);
+size_t
+timerpb__event_lane_time__pack_to_buffer(const Timerpb__EventLaneTime *message,
+                                         ProtobufCBuffer *buffer);
 Timerpb__EventLaneTime *
-       timerpb__event_lane_time__unpack
-                     (ProtobufCAllocator  *allocator,
-                      size_t               len,
-                      const uint8_t       *data);
-void   timerpb__event_lane_time__free_unpacked
-                     (Timerpb__EventLaneTime *message,
-                      ProtobufCAllocator *allocator);
+timerpb__event_lane_time__unpack(ProtobufCAllocator *allocator, size_t len,
+                                 const uint8_t *data);
+void timerpb__event_lane_time__free_unpacked(Timerpb__EventLaneTime *message,
+                                             ProtobufCAllocator *allocator);
 /* --- per-message closures --- */
 
-typedef void (*Timerpb__TimerHealth_Closure)
-                 (const Timerpb__TimerHealth *message,
-                  void *closure_data);
-typedef void (*Timerpb__TimerPulse_Closure)
-                 (const Timerpb__TimerPulse *message,
-                  void *closure_data);
-typedef void (*Timerpb__TimerPin_Closure)
-                 (const Timerpb__TimerPin *message,
-                  void *closure_data);
-typedef void (*Timerpb__GpsTickXref_Closure)
-                 (const Timerpb__GpsTickXref *message,
-                  void *closure_data);
-typedef void (*Timerpb__TimerTimeStamp_Closure)
-                 (const Timerpb__TimerTimeStamp *message,
-                  void *closure_data);
-typedef void (*Timerpb__TimerData_Closure)
-                 (const Timerpb__TimerData *message,
-                  void *closure_data);
-typedef void (*Timerpb__TimerDataList_Closure)
-                 (const Timerpb__TimerDataList *message,
-                  void *closure_data);
-typedef void (*Timerpb__ElapsedConfig_Closure)
-                 (const Timerpb__ElapsedConfig *message,
-                  void *closure_data);
-typedef void (*Timerpb__TimerConfig_Closure)
-                 (const Timerpb__TimerConfig *message,
-                  void *closure_data);
-typedef void (*Timerpb__TimerConfigRampPhotoEye_Closure)
-                 (const Timerpb__TimerConfigRampPhotoEye *message,
-                  void *closure_data);
-typedef void (*Timerpb__TimerConfigLanePhotoEye_Closure)
-                 (const Timerpb__TimerConfigLanePhotoEye *message,
-                  void *closure_data);
-typedef void (*Timerpb__TimerConfigOpposedStarter_Closure)
-                 (const Timerpb__TimerConfigOpposedStarter *message,
-                  void *closure_data);
-typedef void (*Timerpb__TimerConfigOpposedPosition_Closure)
-                 (const Timerpb__TimerConfigOpposedPosition *message,
-                  void *closure_data);
-typedef void (*Timerpb__TimerEventList_Closure)
-                 (const Timerpb__TimerEventList *message,
-                  void *closure_data);
-typedef void (*Timerpb__TimerEvent_Closure)
-                 (const Timerpb__TimerEvent *message,
-                  void *closure_data);
-typedef void (*Timerpb__EventRacePaddleDrop_Closure)
-                 (const Timerpb__EventRacePaddleDrop *message,
-                  void *closure_data);
-typedef void (*Timerpb__EventTimerAvailability_Closure)
-                 (const Timerpb__EventTimerAvailability *message,
-                  void *closure_data);
-typedef void (*Timerpb__EventTimerHealthAlert_Closure)
-                 (const Timerpb__EventTimerHealthAlert *message,
-                  void *closure_data);
-typedef void (*Timerpb__EventLaneTime_Closure)
-                 (const Timerpb__EventLaneTime *message,
-                  void *closure_data);
+typedef void (*Timerpb__TimerHealth_Closure)(
+    const Timerpb__TimerHealth *message, void *closure_data);
+typedef void (*Timerpb__TimerPulse_Closure)(const Timerpb__TimerPulse *message,
+                                            void *closure_data);
+typedef void (*Timerpb__TimerPin_Closure)(const Timerpb__TimerPin *message,
+                                          void *closure_data);
+typedef void (*Timerpb__GpsTickXref_Closure)(
+    const Timerpb__GpsTickXref *message, void *closure_data);
+typedef void (*Timerpb__TimerTimeStamp_Closure)(
+    const Timerpb__TimerTimeStamp *message, void *closure_data);
+typedef void (*Timerpb__TimerData_Closure)(const Timerpb__TimerData *message,
+                                           void *closure_data);
+typedef void (*Timerpb__TimerDataList_Closure)(
+    const Timerpb__TimerDataList *message, void *closure_data);
+typedef void (*Timerpb__ElapsedConfig_Closure)(
+    const Timerpb__ElapsedConfig *message, void *closure_data);
+typedef void (*Timerpb__TimerConfig_Closure)(
+    const Timerpb__TimerConfig *message, void *closure_data);
+typedef void (*Timerpb__TimerConfigRampPhotoEye_Closure)(
+    const Timerpb__TimerConfigRampPhotoEye *message, void *closure_data);
+typedef void (*Timerpb__TimerConfigLanePhotoEye_Closure)(
+    const Timerpb__TimerConfigLanePhotoEye *message, void *closure_data);
+typedef void (*Timerpb__TimerConfigOpposedStarter_Closure)(
+    const Timerpb__TimerConfigOpposedStarter *message, void *closure_data);
+typedef void (*Timerpb__TimerConfigOpposedPosition_Closure)(
+    const Timerpb__TimerConfigOpposedPosition *message, void *closure_data);
+typedef void (*Timerpb__TimerEventList_Closure)(
+    const Timerpb__TimerEventList *message, void *closure_data);
+typedef void (*Timerpb__TimerEvent_Closure)(const Timerpb__TimerEvent *message,
+                                            void *closure_data);
+typedef void (*Timerpb__EventRacePaddleDrop_Closure)(
+    const Timerpb__EventRacePaddleDrop *message, void *closure_data);
+typedef void (*Timerpb__EventTimerAvailability_Closure)(
+    const Timerpb__EventTimerAvailability *message, void *closure_data);
+typedef void (*Timerpb__EventTimerHealthAlert_Closure)(
+    const Timerpb__EventTimerHealthAlert *message, void *closure_data);
+typedef void (*Timerpb__EventLaneTime_Closure)(
+    const Timerpb__EventLaneTime *message, void *closure_data);
 
 /* --- services --- */
 
-
 /* --- descriptors --- */
 
-extern const ProtobufCEnumDescriptor    timerpb__pin_state__descriptor;
-extern const ProtobufCEnumDescriptor    timerpb__pin_name__descriptor;
-extern const ProtobufCEnumDescriptor    timerpb__sensor_logic__descriptor;
+extern const ProtobufCEnumDescriptor timerpb__pin_state__descriptor;
+extern const ProtobufCEnumDescriptor timerpb__pin_name__descriptor;
+extern const ProtobufCEnumDescriptor timerpb__sensor_logic__descriptor;
 extern const ProtobufCMessageDescriptor timerpb__timer_health__descriptor;
 extern const ProtobufCMessageDescriptor timerpb__timer_pulse__descriptor;
 extern const ProtobufCMessageDescriptor timerpb__timer_pin__descriptor;
@@ -839,18 +783,24 @@ extern const ProtobufCMessageDescriptor timerpb__timer_data__descriptor;
 extern const ProtobufCMessageDescriptor timerpb__timer_data_list__descriptor;
 extern const ProtobufCMessageDescriptor timerpb__elapsed_config__descriptor;
 extern const ProtobufCMessageDescriptor timerpb__timer_config__descriptor;
-extern const ProtobufCMessageDescriptor timerpb__timer_config_ramp_photo_eye__descriptor;
-extern const ProtobufCMessageDescriptor timerpb__timer_config_lane_photo_eye__descriptor;
-extern const ProtobufCMessageDescriptor timerpb__timer_config_opposed_starter__descriptor;
-extern const ProtobufCMessageDescriptor timerpb__timer_config_opposed_position__descriptor;
+extern const ProtobufCMessageDescriptor
+    timerpb__timer_config_ramp_photo_eye__descriptor;
+extern const ProtobufCMessageDescriptor
+    timerpb__timer_config_lane_photo_eye__descriptor;
+extern const ProtobufCMessageDescriptor
+    timerpb__timer_config_opposed_starter__descriptor;
+extern const ProtobufCMessageDescriptor
+    timerpb__timer_config_opposed_position__descriptor;
 extern const ProtobufCMessageDescriptor timerpb__timer_event_list__descriptor;
 extern const ProtobufCMessageDescriptor timerpb__timer_event__descriptor;
-extern const ProtobufCMessageDescriptor timerpb__event_race_paddle_drop__descriptor;
-extern const ProtobufCMessageDescriptor timerpb__event_timer_availability__descriptor;
-extern const ProtobufCMessageDescriptor timerpb__event_timer_health_alert__descriptor;
+extern const ProtobufCMessageDescriptor
+    timerpb__event_race_paddle_drop__descriptor;
+extern const ProtobufCMessageDescriptor
+    timerpb__event_timer_availability__descriptor;
+extern const ProtobufCMessageDescriptor
+    timerpb__event_timer_health_alert__descriptor;
 extern const ProtobufCMessageDescriptor timerpb__event_lane_time__descriptor;
 
 PROTOBUF_C__END_DECLS
 
-
-#endif  /* PROTOBUF_C_timer_2eproto__INCLUDED */
+#endif /* PROTOBUF_C_timer_2eproto__INCLUDED */
