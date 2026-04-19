@@ -39,3 +39,4 @@ int getGpsUptimeTotalSeconds();
 int getGpsFlutter();
 bool isGpsEmittingPps();
 int getgpsUptimeContiguousSeconds();
+void scheduleMqPubDataList(int delayMs);
