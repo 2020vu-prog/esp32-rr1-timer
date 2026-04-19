@@ -1,0 +1,9 @@
+{
+	"idf.currentSetup": "/Users/chriswitte/.espressif/v5.5.3/esp-idf",
+	"editor.defaultFormatter": "xaver.clang-format",
+	"editor.formatOnSave": true,
+	"files.associations": {
+		"*.c": "c",
+		"*.h": "c"
+	},
+}

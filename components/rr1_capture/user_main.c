@@ -26,15 +26,15 @@ SOFTWARE.
 @see https://github.com/tonyp7/esp32-wifi-manager
 */
 
+#include "esp_log.h"
+#include "esp_system.h"
 #include "esp_timer.h"
-#include <stdio.h>
-#include <string.h>
-#include <esp_wifi.h>
-#include <esp_netif.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-#include "esp_system.h"
-#include "esp_log.h"
+#include <esp_netif.h>
+#include <esp_wifi.h>
+#include <stdio.h>
+#include <string.h>
 
 #include <driver/gptimer.h>
 // tonyp #include "wifi_manager.h"
@@ -50,31 +50,34 @@ SOFTWARE.
 static const char TAG[] = "main";
 
 /**
- * @brief this is an exemple of a callback that you can setup in your own app to get notified of wifi manager event.
+ * @brief this is an exemple of a callback that you can setup in your own app to
+ * get notified of wifi manager event.
  */
-void cb_connection_ok(void *pvParameter)
-{
-	ip_event_got_ip_t *param = (ip_event_got_ip_t *)pvParameter;
+void cb_connection_ok(void *pvParameter) {
+  ip_event_got_ip_t *param = (ip_event_got_ip_t *)pvParameter;
 
-	/* transform IP to human readable string */
-	char str_ip[16];
-	esp_ip4addr_ntoa(&param->ip_info.ip, str_ip, IP4ADDR_STRLEN_MAX);
+  /* transform IP to human readable string */
+  char str_ip[16];
+  esp_ip4addr_ntoa(&param->ip_info.ip, str_ip, IP4ADDR_STRLEN_MAX);
 
-	ESP_LOGI(TAG, "I have a connection and my IP is %s!", str_ip);
-	mqtt_app_start();
+  ESP_LOGI(TAG, "I have a connection and my IP is %s!", str_ip);
+  mqtt_app_start();
 }
 
-void XXapp_main()
-{
+void XXapp_main() {
 
-	// wifi_config_init2("my-accessory", "my-password", on_wifi_event);
-	/* your code should go here. Here we simply create a task on core 2 that monitors free heap memory */
-	//  xTaskCreatePinnedToCore(&monitoring_task, "monitoring_task1", 2048, "t1", 1, NULL, 1);
-	// xTaskCreatePinnedToCore(&monitoring_task, "monitoring_task0", 2048, "t0", 1, NULL, 0);
+  // wifi_config_init2("my-accessory", "my-password", on_wifi_event);
+  /* your code should go here. Here we simply create a task on core 2 that
+   * monitors free heap memory */
+  //  xTaskCreatePinnedToCore(&monitoring_task, "monitoring_task1", 2048, "t1",
+  //  1, NULL, 1);
+  // xTaskCreatePinnedToCore(&monitoring_task, "monitoring_task0", 2048, "t0",
+  // 1, NULL, 0);
 
-	// xTaskCreatePinnedToCore(&alarm_task, "alarm_task1", 4096, "t1", 1, NULL, 1);
-	// xTaskCreatePinnedToCore(&dump_task, "dump_task0", 4096, "t0", 1, NULL, 0);
-	//  perfmon_start();
-	testem();
-	capture_main();
+  // xTaskCreatePinnedToCore(&alarm_task, "alarm_task1", 4096, "t1", 1, NULL,
+  // 1); xTaskCreatePinnedToCore(&dump_task, "dump_task0", 4096, "t0", 1, NULL,
+  // 0);
+  //  perfmon_start();
+  testem();
+  capture_main();
 }
