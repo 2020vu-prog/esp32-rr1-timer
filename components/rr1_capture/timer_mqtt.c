@@ -153,7 +153,8 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
 		set_error_priority(ERROR_PRI_MQTT, false);
 		aws_mqttHandle->connCount++;
 		mq_pub("MQTT_EVENT_CONNECTED");
-		mqPubDataList();
+	scheduleMqPubDataList(1000);
+
 
 		break;
 	case MQTT_EVENT_DISCONNECTED:
@@ -189,7 +190,7 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
 			{
 				aws_mqttHandle->max_msg_latency_ms = latency_ms;
 			}
-			mqPubDataList(); // make sure backlog is caught up
+	scheduleMqPubDataList(100); // make sure backlog is caught up
 
 		}
 		break;
