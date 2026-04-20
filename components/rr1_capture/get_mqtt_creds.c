@@ -173,9 +173,7 @@ void https_request_auth(char *host_name) {
   accum_event_handler(NULL); // Reset static buffer index
 
   esp_http_client_config_t config = {
-      //.url = "http://your-api-endpoint.com",
       .method = HTTP_METHOD_POST,
-
       .url = authUrl,
       .crt_bundle_attach =
           esp_crt_bundle_attach, // Uses built-in certificate bundle

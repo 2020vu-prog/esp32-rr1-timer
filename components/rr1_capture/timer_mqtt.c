@@ -98,6 +98,7 @@ static void initialize_sntp(void) {
   esp_sntp_setservername(0, "pool.ntp.org");
   esp_sntp_set_time_sync_notification_cb(time_sync_notification_cb);
   esp_sntp_init();
+  ESP_LOGI(TAG, "SNTP initialization done.");
 }
 
 static void log_error_if_nonzero(const char *message, int error_code) {
@@ -229,7 +230,17 @@ void mqtt_app_start(void) {
 
   };
 #endif /* HIVEMQTT */
+
+  ESP_LOGI(TAG, "MQTT client config begin");
+  if (get_mqtt_host() && get_mqtt_cert() && get_mqtt_key()) {
+    ESP_LOGI(TAG, "MQTT client config with credentials");
+  } else {
+    ESP_LOGW(TAG, "MQTT client config missing credentials");
+    return;
+  }
   const esp_mqtt_client_config_t mqtt_cfg = {
+      .session.disable_clean_session = true,
+
       .broker =
           {
               .address =

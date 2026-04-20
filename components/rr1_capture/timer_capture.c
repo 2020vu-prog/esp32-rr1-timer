@@ -23,7 +23,7 @@ const static char *TAG = "rr1_capture";
 qcontrol_handle *quad_h;
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////// Please update the following configuration according to your
-///board spec ////////////////////////////
+/// board spec ////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 void pinHandlerLane(esp_probe_recv_data_t *);
@@ -428,7 +428,7 @@ void apply64bitHysterisisOLD(esp_probe_recv_data_t *recv_dataP) {
 
 void pinHandlerLane(esp_probe_recv_data_t *recv_dataP) {
   th_append(recv_dataP);
-  scheduleMqPubDataList(1000);
+  scheduleMqPubDataList(100);
 }
 // real gps will suppress q timeout and therefore soft gps
 bool isSoftGps(uint64_t nowGpsUs) {

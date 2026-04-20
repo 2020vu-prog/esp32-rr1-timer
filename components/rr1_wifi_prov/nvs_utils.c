@@ -3,12 +3,14 @@
 #include "esp_system.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "mbedtls/base64.h"
 #include "nvs.h"
 #include "nvs_flash.h"
 #include "string.h"
 #include <inttypes.h>
 #include <stdio.h>
 
+#include "esp_random.h"
 #include "rr1_wifi.h"
 const static char *TAG = "nvs_utils";
 void nvs_dumprr1() {
@@ -134,7 +136,16 @@ void nvs_get_rr1_apikey(char *out_value, size_t max_len) {
   nvs_get(dns_host, "api_key", out_value, max_len);
   if (strlen(out_value) == 0) {
     ESP_LOGW(TAG, "rr1 [%s] api_key not found in NVS", dns_host);
-    strncpy(out_value, "", max_len);
+    uint8_t apiRandomBytes[128];
+    size_t outlen;
+    esp_fill_random(apiRandomBytes, sizeof(apiRandomBytes));
+    memset(out_value, 0, max_len);
+    mbedtls_base64_encode((unsigned char *)out_value, max_len, &outlen,
+                          apiRandomBytes, sizeof(apiRandomBytes));
+
+    nvs_set_rr1_apikey(out_value);
+    ESP_LOGI(TAG, "Generated random api_key [%s]", out_value);
+    // strncpy(out_value, "", max_len);
   }
 }
 void nvs_set_rr1_apikey(char *api_key) {
