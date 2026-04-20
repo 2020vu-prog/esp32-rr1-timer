@@ -14,6 +14,9 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
+        uses: RafikFarhad/clang-format-github-action@v6
+        with:
+          sources: "components/**/*.h,components/**/*.c"
 
       - name: Set up ESP-IDF v5.5.3
         uses: espressif/esp-idf-ci-action@v1
