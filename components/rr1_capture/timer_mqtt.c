@@ -239,8 +239,17 @@ void mqtt_app_start(void) {
     return;
   }
   const esp_mqtt_client_config_t mqtt_cfg = {
-      .session.disable_clean_session = true,
-
+      .session =
+          {
+              .disable_clean_session = true,
+              .last_will =
+                  {
+                      .topic = mq_topic,
+                      .msg = "offline",
+                      .qos = 1,
+                      .retain = false,
+                  },
+          },
       .broker =
           {
               .address =
