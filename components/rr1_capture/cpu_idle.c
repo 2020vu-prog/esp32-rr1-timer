@@ -21,8 +21,8 @@ typedef struct {
 statsSnapshot_t *start_snapshot;
 statsSnapshot_t *end_snapshot;
 esp_err_t espgetTaskStats(statsSnapshot_t *snapshot);
-esp_err_t deltaTaskStats(statsSnapshot_t *start, statsSnapshot_t *end);
-
+esp_err_t deltaTaskStats(statsSnapshot_t *start, statsSnapshot_t *end,
+                         statsRecap_t *recap);
 statsSnapshot_t *taskStatsInit();
 
 void cpuIdleInit() {
@@ -55,18 +55,24 @@ statsSnapshot_t *taskStatsInit() {
 esp_err_t espgetTaskStats(statsSnapshot_t *snapshot) {
   esp_err_t ret = ESP_OK;
 
+  ESP_LOGI(TAG, "Getting task stats with array size %d",
+           snapshot->_array_size_allocated);
   // Get current task states
   snapshot->_array_size = uxTaskGetSystemState(
-      snapshot->_array, snapshot->_array_size, &snapshot->_run_time);
+      snapshot->_array, snapshot->_array_size_allocated, &snapshot->_run_time);
   if (snapshot->_array_size == 0) {
     ret = ESP_ERR_INVALID_SIZE;
     ESP_LOGE(TAG, "Failed to get task states");
     return ret;
   }
+  ESP_LOGI(TAG, "Got %d task states, runtime: %d", snapshot->_array_size,
+           (int)snapshot->_run_time);
   return ret;
 }
-esp_err_t deltaTaskStats(statsSnapshot_t *start, statsSnapshot_t *end) {
+esp_err_t deltaTaskStats(statsSnapshot_t *start, statsSnapshot_t *end,
+                         statsRecap_t *recap) {
   esp_err_t ret = ESP_OK;
+  recap->cpu_used_percent = 0;
 
   // Calculate total_elapsed_time in units of run time stats clock period.
   uint32_t total_elapsed_time = (end->_run_time - start->_run_time);
@@ -84,8 +90,15 @@ esp_err_t deltaTaskStats(statsSnapshot_t *start, statsSnapshot_t *end) {
       if (start->_array[i].xHandle == end->_array[j].xHandle) {
         k = j;
         // Mark that task have been matched by overwriting their handles
-        start->_array[i].xHandle = NULL;
-        end->_array[j].xHandle = NULL;
+        // start->_array[i].xHandle = NULL;
+        // end->_array[j].xHandle = NULL;
+
+        start->_array[i].xTaskNumber =
+            0; // mark matched to avoid confusion with deleted/created tasks in
+               // unmatched loop below
+        end->_array[j].xTaskNumber =
+            0; // mark matched to avoid confusion with deleted/created tasks in
+               // unmatched loop below
         break;
       }
     }
@@ -98,31 +111,43 @@ esp_err_t deltaTaskStats(statsSnapshot_t *start, statsSnapshot_t *end) {
           (total_elapsed_time * CONFIG_FREERTOS_NUMBER_OF_CORES);
       printf("| %s | %" PRIu32 " | %" PRIu32 "%%\n",
              start->_array[i].pcTaskName, task_elapsed_time, percentage_time);
+      recap->cpu_used_percent += percentage_time;
     }
   }
 
   // Print unmatched tasks
   for (int i = 0; i < start->_array_size; i++) {
-    if (start->_array[i].xHandle != NULL) {
+    if (start->_array[i].xTaskNumber != 0) {
       printf("| %s | Deleted\n", start->_array[i].pcTaskName);
+    } else {
+      start->_array[i].xTaskNumber = 0x01; // reset for re-use in next snapshot
     }
   }
   for (int i = 0; i < end->_array_size; i++) {
-    if (end->_array[i].xHandle != NULL) {
+    if (end->_array[i].xTaskNumber != 0) {
       printf("| %s | Created\n", end->_array[i].pcTaskName);
+    } else {
+      end->_array[i].xTaskNumber = 0x01; // reset for re-use in next snapshot
     }
   }
 
   return ret;
 }
-void getCpuIdleStats() {
+void getCpuIdleStats(statsRecap_t *recap) {
   esp_err_t ret = ESP_OK;
+  recap->cpu_used_percent = -1;
+  if (!start_snapshot || !end_snapshot) {
+    ESP_LOGE(TAG, "Snapshots not initialized");
+    cpuIdleInit();
+    return; // let caller try again after initialization (time needs to pass
+            // between snapshots to get meaningful data)
+  }
   ret = espgetTaskStats(end_snapshot);
   if (ret != ESP_OK) {
     ESP_LOGE(TAG, "Failed to get task stats: %s", esp_err_to_name(ret));
     return;
   }
-  ret = deltaTaskStats(start_snapshot, end_snapshot);
+  ret = deltaTaskStats(start_snapshot, end_snapshot, recap);
   if (ret != ESP_OK) {
     ESP_LOGE(TAG, "Failed to calculate delta task stats: %s",
              esp_err_to_name(ret));

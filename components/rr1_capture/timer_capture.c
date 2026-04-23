@@ -5,6 +5,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
+#include "cpu_idle.h"
 #include "esp_check.h"
 #include "esp_timer.h"
 #include "gps_xlate.h"
@@ -270,7 +271,11 @@ void mqIncCreditsPeriodically(PollFunc *pf) {
   incMqttPublishCredits();
   mqPubDataList();
 }
-
+void idlePoll(PollFunc *pf) {
+  statsRecap_t recap = {};
+  getCpuIdleStats(&recap);
+  ESP_LOGI(TAG, "idlePoll: cpu  percent %d", (int)recap.cpu_used_percent);
+}
 PollFunc pollFuncs[] = {
     {.func = mqPollDataList, .freqMs = 999999000, .nextMs = 0}, // event driven
     {.func = mqIncCreditsPeriodically, .freqMs = 15000, .nextMs = 0},
@@ -278,7 +283,7 @@ PollFunc pollFuncs[] = {
     {.func = quadWatchdog, .freqMs = 45000, .nextMs = 0},
     {.func = blinkUserLed, .freqMs = 1000, .nextMs = 0},
     {.func = blinkLaser, .freqMs = 1000, .nextMs = 0},
-
+    {.func = idlePoll, .freqMs = 5000, .nextMs = 0},
     {.func = NULL, .freqMs = 0, .nextMs = 0} // sentinel
 
 };

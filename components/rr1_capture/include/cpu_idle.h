@@ -6,5 +6,7 @@
 #include <inttypes.h>
 
 typedef struct {
-  int cpu_idle_percent;
+  int cpu_used_percent;
 } statsRecap_t;
+
+void getCpuIdleStats(statsRecap_t *recap);
