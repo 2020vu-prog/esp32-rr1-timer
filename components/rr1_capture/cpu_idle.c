@@ -69,10 +69,37 @@ esp_err_t espgetTaskStats(statsSnapshot_t *snapshot) {
            (int)snapshot->_run_time);
   return ret;
 }
+void getCpuIdleStats(statsRecap_t *recap) {
+  esp_err_t ret = ESP_OK;
+  recap->cpu_used_percent = -1;
+  if (!start_snapshot || !end_snapshot) {
+    ESP_LOGE(TAG, "Snapshots not initialized");
+    cpuIdleInit();
+    return; // let caller try again after initialization (time needs to pass
+            // between snapshots to get meaningful data)
+  }
+  ret = espgetTaskStats(end_snapshot);
+  if (ret != ESP_OK) {
+    ESP_LOGE(TAG, "Failed to get task stats: %s", esp_err_to_name(ret));
+    return;
+  }
+  ret = deltaTaskStats(start_snapshot, end_snapshot, recap);
+  if (ret != ESP_OK) {
+    ESP_LOGE(TAG, "Failed to calculate delta task stats: %s",
+             esp_err_to_name(ret));
+    return;
+  }
+  // Update start snapshot for next measurement
+  statsSnapshot_t *temp = end_snapshot;
+  end_snapshot = start_snapshot;
+  start_snapshot = temp;
+}
+
 esp_err_t deltaTaskStats(statsSnapshot_t *start, statsSnapshot_t *end,
                          statsRecap_t *recap) {
   esp_err_t ret = ESP_OK;
   recap->cpu_used_percent = 0;
+  recap->cpu_idle_percent = 0;
 
   // Calculate total_elapsed_time in units of run time stats clock period.
   uint32_t total_elapsed_time = (end->_run_time - start->_run_time);
@@ -102,6 +129,7 @@ esp_err_t deltaTaskStats(statsSnapshot_t *start, statsSnapshot_t *end,
         break;
       }
     }
+
     // Check if matching task found
     if (k >= 0) {
       uint32_t task_elapsed_time =
@@ -111,7 +139,11 @@ esp_err_t deltaTaskStats(statsSnapshot_t *start, statsSnapshot_t *end,
           (total_elapsed_time * CONFIG_FREERTOS_NUMBER_OF_CORES);
       printf("| %s | %" PRIu32 " | %" PRIu32 "%%\n",
              start->_array[i].pcTaskName, task_elapsed_time, percentage_time);
-      recap->cpu_used_percent += percentage_time;
+      if (strcmp(start->_array[i].pcTaskName, "IDLE") == 0) {
+        recap->cpu_idle_percent += percentage_time;
+      } else {
+        recap->cpu_used_percent += percentage_time;
+      }
     }
   }
 
@@ -132,29 +164,4 @@ esp_err_t deltaTaskStats(statsSnapshot_t *start, statsSnapshot_t *end,
   }
 
   return ret;
-}
-void getCpuIdleStats(statsRecap_t *recap) {
-  esp_err_t ret = ESP_OK;
-  recap->cpu_used_percent = -1;
-  if (!start_snapshot || !end_snapshot) {
-    ESP_LOGE(TAG, "Snapshots not initialized");
-    cpuIdleInit();
-    return; // let caller try again after initialization (time needs to pass
-            // between snapshots to get meaningful data)
-  }
-  ret = espgetTaskStats(end_snapshot);
-  if (ret != ESP_OK) {
-    ESP_LOGE(TAG, "Failed to get task stats: %s", esp_err_to_name(ret));
-    return;
-  }
-  ret = deltaTaskStats(start_snapshot, end_snapshot, recap);
-  if (ret != ESP_OK) {
-    ESP_LOGE(TAG, "Failed to calculate delta task stats: %s",
-             esp_err_to_name(ret));
-    return;
-  }
-  // Update start snapshot for next measurement
-  statsSnapshot_t *temp = end_snapshot;
-  end_snapshot = start_snapshot;
-  start_snapshot = temp;
 }

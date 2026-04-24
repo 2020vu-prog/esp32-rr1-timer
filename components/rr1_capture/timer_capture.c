@@ -274,7 +274,8 @@ void mqIncCreditsPeriodically(PollFunc *pf) {
 void idlePoll(PollFunc *pf) {
   statsRecap_t recap = {};
   getCpuIdleStats(&recap);
-  ESP_LOGI(TAG, "idlePoll: cpu  percent %d", (int)recap.cpu_used_percent);
+  ESP_LOGI(TAG, "idlePoll: cpu  percent %d idle percent %d",
+           (int)recap.cpu_used_percent, (int)recap.cpu_idle_percent);
 }
 PollFunc pollFuncs[] = {
     {.func = mqPollDataList, .freqMs = 999999000, .nextMs = 0}, // event driven
