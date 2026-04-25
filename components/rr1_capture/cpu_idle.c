@@ -25,6 +25,13 @@ esp_err_t deltaTaskStats(statsSnapshot_t *start, statsSnapshot_t *end,
                          statsRecap_t *recap);
 statsSnapshot_t *taskStatsInit();
 
+#define RECENT_IDLE_MAX 9
+#define RI_INVALID -999
+int recentIdlePercents[RECENT_IDLE_MAX] = {RI_INVALID, RI_INVALID, RI_INVALID,
+                                           RI_INVALID, RI_INVALID, RI_INVALID,
+                                           RI_INVALID, RI_INVALID, RI_INVALID};
+int recentIdleIndex = 0;
+
 void cpuIdleInit() {
   start_snapshot = taskStatsInit();
   if (start_snapshot == NULL) {
@@ -69,7 +76,18 @@ esp_err_t espgetTaskStats(statsSnapshot_t *snapshot) {
            (int)snapshot->_run_time);
   return ret;
 }
-void getCpuIdleStats(statsRecap_t *recap) {
+int getRecentCpuIdlePercentAverage() {
+  int sum = 0;
+  int count = 0;
+  for (int i = 0; i < RECENT_IDLE_MAX; i++) {
+    if (recentIdlePercents[i] != RI_INVALID) {
+      sum += recentIdlePercents[i];
+      count++;
+    }
+  }
+  return count > 0 ? sum / count : 0;
+}
+void updateCpuIdleStats(statsRecap_t *recap) {
   esp_err_t ret = ESP_OK;
   recap->cpu_used_percent = -1;
   if (!start_snapshot || !end_snapshot) {
@@ -162,6 +180,9 @@ esp_err_t deltaTaskStats(statsSnapshot_t *start, statsSnapshot_t *end,
       end->_array[i].xTaskNumber = 0x01; // reset for re-use in next snapshot
     }
   }
+
+  recentIdlePercents[recentIdleIndex] = recap->cpu_idle_percent;
+  recentIdleIndex = (recentIdleIndex + 1) % RECENT_IDLE_MAX;
 
   return ret;
 }

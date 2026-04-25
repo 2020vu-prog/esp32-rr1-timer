@@ -9,5 +9,5 @@ typedef struct {
   int cpu_used_percent;
   int cpu_idle_percent;
 } statsRecap_t;
-
-void getCpuIdleStats(statsRecap_t *recap);
+int getRecentCpuIdlePercentAverage();
+void updateCpuIdleStats(statsRecap_t *recap);

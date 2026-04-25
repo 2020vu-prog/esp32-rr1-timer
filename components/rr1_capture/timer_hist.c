@@ -423,13 +423,7 @@ Timerpb__TimerData *marshalRr1TimerPbTimerDataHealth() {
   td->timerhealth->buildepoch = BUILD_EPOCH;
 
   td->timerhealth->has_cpuidlepercent = true;
-  statsRecap_t recap = {};
-  getCpuIdleStats(&recap);
-  if (recap.cpu_used_percent >= 0) {
-    td->timerhealth->cpuidlepercent = 100 - recap.cpu_used_percent;
-  } else {
-    td->timerhealth->cpuidlepercent = 0;
-  }
+  td->timerhealth->cpuidlepercent = getRecentCpuIdlePercentAverage();
 
   ESP_LOGI(TAG, "marshalRr1TimerPbTimerDataHealth: cpu idle percent %d",
            (int)td->timerhealth->cpuidlepercent);

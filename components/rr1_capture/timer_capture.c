@@ -271,10 +271,10 @@ void mqIncCreditsPeriodically(PollFunc *pf) {
   incMqttPublishCredits();
   mqPubDataList();
 }
-void idlePoll(PollFunc *pf) {
+void idleCalc(PollFunc *pf) {
   statsRecap_t recap = {};
-  getCpuIdleStats(&recap);
-  ESP_LOGI(TAG, "idlePoll: cpu  percent %d idle percent %d",
+  updateCpuIdleStats(&recap);
+  ESP_LOGI(TAG, "idleCalc: cpu  percent %d idle percent %d",
            (int)recap.cpu_used_percent, (int)recap.cpu_idle_percent);
 }
 PollFunc pollFuncs[] = {
@@ -284,7 +284,7 @@ PollFunc pollFuncs[] = {
     {.func = quadWatchdog, .freqMs = 45000, .nextMs = 0},
     {.func = blinkUserLed, .freqMs = 1000, .nextMs = 0},
     {.func = blinkLaser, .freqMs = 1000, .nextMs = 0},
-    {.func = idlePoll, .freqMs = 5000, .nextMs = 0},
+    {.func = idleCalc, .freqMs = 10000, .nextMs = 0},
     {.func = NULL, .freqMs = 0, .nextMs = 0} // sentinel
 
 };
