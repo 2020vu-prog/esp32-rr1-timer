@@ -155,3 +155,13 @@ void nvs_set_rr1_apikey(char *api_key) {
            dns_host);
   nvs_set(dns_host, "api_key", api_key);
 }
+void nvs_set_firmware_etag(char *etag) {
+  nvs_set("rr1", "firmware_etag", etag);
+}
+void nvs_get_firmware_etag(char *out_value, size_t max_len) {
+  nvs_get("rr1", "firmware_etag", out_value, max_len);
+  if (strlen(out_value) == 0) {
+    ESP_LOGW(TAG, "rr1 firmware_etag not found in NVS");
+    strncpy(out_value, "", max_len);
+  }
+}
