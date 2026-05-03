@@ -10,7 +10,9 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-
+    permissions:
+      id-token: write
+      contents: read
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
@@ -25,8 +27,20 @@ jobs:
           esp_idf_version: "v5.5.3"
           target: esp32c5
 
-      - name: Upload build artifacts
+      - name: save build artifacts
         uses: actions/upload-artifact@v6
         with:
           name: esp-build
           path: build/esp32-rr1-timer.bin
+
+
+      - name: Setup AWS CLI
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          role-to-assume: "arn:aws:iam::178616746534:role/github-actions-s3-upload-role"
+          aws-region: us-east-2
+
+      - name: Sync files to S3 bucket
+        run: |
+          aws s3 cp  --cache-control 'max-age=180' build/esp32-rr1-timer.bin  s3://svelte-static-20221204164305433000000002/firmware/esp32-rr1-timer.bin
+

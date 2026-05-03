@@ -34,6 +34,11 @@ set(PROJECT_VER "${GIT_BRANCH}-${GIT_DESCRIBE}")
 
 string(TIMESTAMP BUILD_EPOCH "%s")
 add_compile_definitions(BUILD_EPOCH=${BUILD_EPOCH})
+
+
+# 1. Access the environment variable
+set(GITHUB_RUN_NUMBER $ENV{GITHUB_RUN_NUMBER})
+add_compile_definitions(GITHUB_RUN_NUMBER="${GITHUB_RUN_NUMBER}")
 #add_compile_definitions(GIT_BRANCH=${GIT_BRANCH})
 #add_compile_definitions(GIT_DESCRIBE=${GIT_DESCRIBE})
 #add_compile_definitions(GIT_COMMIT=${GIT_COMMIT})

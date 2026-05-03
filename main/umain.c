@@ -84,13 +84,12 @@ void app_main(void) {
   testem();
   // capture_main();
 
+  ESP_LOGI(TAG, "app_main: Hello World! runumber: %s", GITHUB_RUN_NUMBER);
   // TODO:  check for new version. no repeat updates to same ver!
-  // xTaskCreate(&simple_ota_example_task, "ota_example_task", 8192, NULL, 5,
-  // NULL);
+  xTaskCreate(&simple_ota_example_task, "ota_task", 8192, NULL, 5, NULL);
 
   const esp_app_desc_t *ad = esp_app_get_description();
   while (1) {
-
     // ESP_LOGI(TAG, "umain Hello World! %s", CONFIG_APP_PROJECT_VER);
     ESP_LOGI(TAG, "umain version TEST859! %s", ad->version);
     vTaskDelay(5000 / portTICK_PERIOD_MS);
