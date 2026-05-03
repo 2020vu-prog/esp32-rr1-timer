@@ -10,7 +10,9 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-
+    permissions:
+      id-token: write
+      contents: read
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
@@ -21,14 +23,12 @@ jobs:
 
       - name: Set up ESP-IDF v5.5.3
         uses: espressif/esp-idf-ci-action@v1
-        if: github.event_name == 'pull_request'
         with:
           esp_idf_version: "v5.5.3"
           target: esp32c5
 
-      - name: Upload build artifacts
+      - name: save build artifacts
         uses: actions/upload-artifact@v6
-        if: github.event_name == 'pull_request'
         with:
           name: esp-build
           path: build/esp32-rr1-timer.bin
@@ -36,12 +36,11 @@ jobs:
 
       - name: Setup AWS CLI
         uses: aws-actions/configure-aws-credentials@v1
-        if: github.event_name == 'pull_request'
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          role-to-assume: "arn:aws:iam::178616746534:role/github-actions-s3-upload-role"
           aws-region: us-east-2
+
       - name: Sync files to S3 bucket
         run: |
-          aws s3 sync tools s3://my-bucket-name --delete
+          aws s3 cp build/esp32-rr1-timer.bin  s3://svelte-static-20221204164305433000000002/public/firmware/esp32-rr1-timer.bin
 
