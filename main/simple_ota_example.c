@@ -88,8 +88,7 @@ bool firmware_update_available(const char *ota_url) {
     ESP_LOGI(TAG, "Firmware update is available (ETag changed) [%s]->[%s]",
              current_etag, latest_ota_etag);
 
-    return false; // for testing, we return false to avoid actually doing the
-                  // update. change to true to enable update when etag changes
+    return true;
   }
   return false;
 }
@@ -129,7 +128,8 @@ void simple_ota_example_task(void *pvParameter) {
   char dns_host[64];
   nvs_get_rr1_host(dns_host, sizeof(dns_host));
   char ota_url[OTA_URL_SIZE];
-  snprintf(ota_url, OTA_URL_SIZE, "https://%s/firmware/foo.bin", dns_host);
+  snprintf(ota_url, OTA_URL_SIZE, "https://%s/firmware/esp32-rr1-timer.bin",
+           dns_host);
   ESP_LOGI(TAG, "Constructed OTA URL: %s", ota_url);
   if (firmware_update_available(ota_url)) {
     ESP_LOGI(TAG, "Firmware update is available at %s", ota_url);
