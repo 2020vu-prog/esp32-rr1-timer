@@ -42,5 +42,5 @@ jobs:
 
       - name: Sync files to S3 bucket
         run: |
-          aws s3 cp build/esp32-rr1-timer.bin  s3://svelte-static-20221204164305433000000002/firmware/esp32-rr1-timer.bin
+          aws s3 cp  --cache-control 'max-age=180' build/esp32-rr1-timer.bin  s3://svelte-static-20221204164305433000000002/firmware/esp32-rr1-timer.bin
 
