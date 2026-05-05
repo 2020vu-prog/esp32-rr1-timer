@@ -28,6 +28,7 @@
 
 #include "get_mqtt_creds.h"
 #include "quad_uint32.h"
+#include "timer_i2c.h"
 #include "timer_mqtt.h"
 #include "timer_stdin.h"
 
@@ -80,6 +81,7 @@ void app_main(void) {
   esp_wifi_set_ps(WIFI_PS_NONE);
   https_request_creds();
   mqtt_app_start();
+  rr1_i2c_init();
 
   testem();
   // capture_main();
