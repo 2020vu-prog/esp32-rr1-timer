@@ -276,6 +276,11 @@ void mqtt_app_start(void) {
           {
               .timeout_ms = 20000,
           },
+      .task =
+          {
+              .stack_size = 10240,
+              .priority = 5,
+          },
   };
   ESP_LOGI(TAG, "MQTT client configured with host %s, client_id %s",
            mqtt_cfg.broker.address.hostname, mqtt_cfg.credentials.client_id);
