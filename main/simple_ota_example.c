@@ -25,9 +25,9 @@
 #if CONFIG_EXAMPLE_CONNECT_WIFI
 #include "esp_wifi.h"
 #endif
+#include "rr1_blink.h"
 #include "rr1_ota.h"
 #include "rr1_wifi.h"
-
 #define HASH_LEN 32
 
 static const char *TAG = "simple_ota";
@@ -122,8 +122,8 @@ esp_err_t _http_ota_event_handler(esp_http_client_event_t *evt) {
   }
   return ESP_OK;
 }
-
-void simple_ota_example_task(void *pvParameter) {
+int simple_ota_attempt() {
+  int rc = -1;
   ESP_LOGI(TAG, "Starting OTA example task");
   char dns_host[64];
   nvs_get_rr1_host(dns_host, sizeof(dns_host));
@@ -135,6 +135,7 @@ void simple_ota_example_task(void *pvParameter) {
     ESP_LOGI(TAG, "Firmware update is available at %s", ota_url);
   } else {
     ESP_LOGI(TAG, "No firmware update needed at %s", ota_url);
+    rc = 0;
     goto ota_done;
   }
 
@@ -162,10 +163,44 @@ void simple_ota_example_task(void *pvParameter) {
     esp_restart();
   } else {
     ESP_LOGE(TAG, "Firmware upgrade failed");
+    rc = -1;
   }
 
 ota_done:
   ESP_LOGI(TAG, "OTA task finished");
+
+  return rc;
+}
+void simple_ota_example_task(void *pvParameter) {
+  for (int i = 0; i < 5; i++) {
+    while (get_error_priority(ERROR_PRI_WIFI_CONNECTION)) {
+      ESP_LOGW(TAG,
+               "simple_ota_example_task: waiting for Wi-Fi connection before "
+               "attempt %d",
+               i + 1);
+
+      vTaskDelay(10000 / portTICK_PERIOD_MS); // Wait before retrying
+    }
+    int wifi_transition_count = get_transition_count(ERROR_PRI_WIFI_CONNECTION);
+    ESP_LOGI(TAG, "simple_ota_example_task: attempt %d", i + 1);
+    int rc = simple_ota_attempt();
+    if (rc == 0) {
+      break; // Success, exit the loop
+    }
+
+    if (get_transition_count(ERROR_PRI_WIFI_CONNECTION) >
+        wifi_transition_count) {
+      ESP_LOGW(TAG,
+               "simple_ota_example_task: Wi-Fi connection issue detected "
+               "during attempt %d",
+               i + 1);
+      continue;
+    }
+
+    ESP_LOGW(TAG, "simple_ota_example_task: attempt %d failed, retrying...",
+             i + 1);
+  }
+  ESP_LOGW(TAG, "simple_ota_example_task: attempt DONE");
   vTaskDelete(NULL);
 }
 

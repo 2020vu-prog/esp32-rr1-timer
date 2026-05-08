@@ -1,11 +1,13 @@
 #include "timer_blink.h"
 
 #include "driver/gpio.h"
-
+#include "esp_log.h"
 #define GPIO_PIN_LASER 7
 #define GPIO_PIN_LED 27
 
+const static char *TAG = "rr1_blink";
 bool error_recap[ERROR_PRI_MAX];
+int error_transition_count[ERROR_PRI_MAX];
 typedef struct {
   bool state;
   uint32_t period_ms;
@@ -115,10 +117,32 @@ blink_handler_t ledBlinkHandler = {
 blink_handler_t *get_blink_handler(enum blink_output_t output);
 timer_action_t *get_current_action(blink_handler_t *handler);
 void advance_blink_handler(blink_handler_t *handler);
+bool get_error_priority(enum error_pri_t pri) {
+  if (pri <= ERROR_PRI_NONE || pri >= ERROR_PRI_MAX)
+    return false; // Handle invalid priority
+
+  return error_recap[pri];
+}
+/*
+ */
+int get_transition_count(enum error_pri_t pri) {
+  if (pri <= ERROR_PRI_NONE || pri >= ERROR_PRI_MAX)
+    return -1; // Handle invalid priority
+
+  return error_transition_count[pri];
+}
+/*
+**
+*/
 void set_error_priority(enum error_pri_t pri, bool isActive) {
   if (pri <= ERROR_PRI_NONE || pri >= ERROR_PRI_MAX)
     return; // Handle invalid priority
 
+  if (error_recap[pri] != isActive) {
+    error_transition_count[pri]++;
+    ESP_LOGI(TAG, "Error priority %d transition count %d", pri,
+             error_transition_count[pri]);
+  }
   error_recap[pri] = isActive;
   enum error_pri_t lowest_active_pri = ERROR_PRI_NONE;
   for (int i = ERROR_PRI_NONE; i < ERROR_PRI_MAX; i++) {
