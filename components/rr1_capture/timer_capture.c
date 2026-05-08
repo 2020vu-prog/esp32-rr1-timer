@@ -172,7 +172,25 @@ capture_channel_setup(pindef_t *pd, mcpwm_cap_timer_handle_t cap_timer) {
   return cap_local_chan_h;
 }
 static mcpwm_cap_timer_handle_t gcap_timer = NULL;
+#define TPS61040_ENABLE_GPIO 10
+esp_err_t TPS61040_init() {
+  // Configure the GPIO pin for TPS61040 enable
+  gpio_config_t io_conf = {};
+  io_conf.intr_type = GPIO_INTR_DISABLE; // No interrupt
+  io_conf.mode = GPIO_MODE_OUTPUT_OD;    // adafruit eval board pulls high to
+                                         // enable, so use open drain output
+  io_conf.pin_bit_mask = (1ULL << TPS61040_ENABLE_GPIO); // Pin mask
+  io_conf.pull_down_en = GPIO_PULLDOWN_DISABLE;          // No pull-down
+  io_conf.pull_up_en = GPIO_PULLUP_DISABLE;              // No pull-up
+  esp_err_t ret = gpio_config(&io_conf);
+  ESP_RETURN_ON_ERROR(ret, TAG, "Failed to configure GPIO for TPS61040 enable");
 
+  // Enable the TPS61040 by setting the GPIO high
+  ret = gpio_set_level(TPS61040_ENABLE_GPIO, 1);
+  ESP_RETURN_ON_ERROR(ret, TAG, "Failed to set GPIO level for TPS61040 enable");
+
+  return ESP_OK;
+}
 esp_err_t capture_setup(void) {
   timer_hist_init();
   esp_err_t ret = ESP_OK;
@@ -314,9 +332,17 @@ int doPollAll() {
   int delayMs = 10000;
   for (int x = 0; pollFuncs[x].func != NULL; x++) {
     if (nowMs >= pollFuncs[x].nextMs) {
+      const uint64_t innerNowMs = esp_timer_get_time() / 1000;
       pollFuncs[x].nowMs = nowMs;
       pollFuncs[x].nextMs = nowMs + pollFuncs[x].freqMs;
       pollFuncs[x].func(&pollFuncs[x]);
+
+      const uint64_t innerElapsedMs =
+          (esp_timer_get_time() / 1000) - innerNowMs;
+      if (innerElapsedMs > 2) {
+        ESP_LOGW(TAG, "INNER poll func is SLOW! %d ms [%d]",
+                 (int)innerElapsedMs, x);
+      }
     }
     // min delay until next poll func needs to run
     if (delayMs > pollFuncs[x].nextMs - nowMs) {
@@ -336,6 +362,7 @@ void capture_main(void) {
   registerApplyCallback(BLINK_OUTPUT_LASER, reset_blink_poll);
 
   quad_h = init_qcontrol();
+  TPS61040_init();
   capture_setup();
   ESP_LOGI(TAG, "Install capture timer");
 
