@@ -7,6 +7,8 @@
 #include "sdkconfig.h"
 #include <stdio.h>
 
+#include "esp_log.h"
+
 #define UART_NUM CONFIG_EXAMPLE_UART_NUM
 #define UART_RX_PIN CONFIG_EXAMPLE_UART_RX
 #define UART_RX_BUF_SIZE (1024)
@@ -15,6 +17,7 @@ static char s_buf[UART_RX_BUF_SIZE + 1];
 static size_t s_total_bytes;
 static char *s_last_buf_end;
 
+static const char *TAG = "nmea_uart";
 void nmea_example_init_interface(void) {
   uart_config_t uart_config = {
       .baud_rate = 9600,
@@ -52,6 +55,8 @@ void nmea_example_read_line(char **out_line_buf, size_t *out_line_len,
   int read_bytes = uart_read_bytes(UART_NUM, (uint8_t *)s_buf + s_total_bytes,
                                    UART_RX_BUF_SIZE - s_total_bytes,
                                    pdMS_TO_TICKS(timeout_ms));
+  ESP_LOGI(TAG, "uart_read_bytes: read %d bytes [%d]", read_bytes,
+           s_total_bytes);
   if (read_bytes <= 0) {
     return;
   }
