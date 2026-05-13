@@ -8,6 +8,7 @@ idf_component_register(SRCS "simple_ota_example.c" "umain.c"
 				  rr1_wifi_prov
 				  rr1_capture
 				  rr1_messages
+				  rr1_gps
 				  esp_driver_tsens
 				  esp_app_format
                     )
