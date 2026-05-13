@@ -2,7 +2,7 @@
 
 #include "driver/gpio.h"
 #include "esp_log.h"
-#define GPIO_PIN_LASER 7
+#define GPIO_PIN_LASER 9
 #define GPIO_PIN_LED 27
 
 const static char *TAG = "rr1_blink";

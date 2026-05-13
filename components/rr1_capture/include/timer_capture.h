@@ -1,9 +1,10 @@
 #pragma once
 #include "driver/mcpwm_cap.h"
 
-#define GPS_PPS_GPIO 1 // D0
-#define LANE1_GPIO 0   // D1
-#define LANE2_GPIO 25  // D2
+// #define GPS_PPS_GPIO 1 // D0
+#define GPS_PPS_GPIO 11 // D6
+#define LANE1_GPIO 0    // D1
+#define LANE2_GPIO 25   // D2
 
 struct _pindef_t;
 
