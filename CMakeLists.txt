@@ -23,7 +23,7 @@ execute_process(
 )
 # Execute git command to get the standard version (tags/hash)
 execute_process(
-    COMMAND git describe --always 
+    COMMAND git rev-parse --short HEAD
     WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
     OUTPUT_VARIABLE GIT_COMMIT
     OUTPUT_STRIP_TRAILING_WHITESPACE
