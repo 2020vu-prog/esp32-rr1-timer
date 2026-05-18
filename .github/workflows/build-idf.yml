@@ -23,11 +23,9 @@ jobs:
         with:
           sources: "components/**/*.h,components/**/*.c,main/*.h,main/*.c"
 
-    steps:
       - name: Set environment variables
         run: |
-          echo "AWS_ACCOUNT=1.2.3" >> $GITHUB_ENV
-
+          ./tools/aws_env.sh
       - name: Set up ESP-IDF v5.5.3
         uses: espressif/esp-idf-ci-action@v1
         with:
