@@ -1,6 +1,8 @@
 # @format
 
 name: Build with ESP-IDF v5.5.3
+env:
+  BRANCH_NAME: ${{ github.ref_name }}  # Workflow Level
 
 on:
   push:
@@ -21,6 +23,11 @@ jobs:
         with:
           sources: "components/**/*.h,components/**/*.c,main/*.h,main/*.c"
 
+    steps:
+      - name: Set environment variables
+        run: |
+          echo "AWS_ACCOUNT=1.2.3" >> $GITHUB_ENV
+
       - name: Set up ESP-IDF v5.5.3
         uses: espressif/esp-idf-ci-action@v1
         with:
@@ -34,10 +41,13 @@ jobs:
           path: build/esp32-rr1-timer.bin
 
 
+
       - name: Setup AWS CLI
         uses: aws-actions/configure-aws-credentials@v1
+        if: env.AWS_ACCOUNT != ''
+
         with:
-          role-to-assume: "arn:aws:iam::178616746534:role/github-actions-s3-upload-role"
+          role-to-assume: "arn:aws:iam::${{ env.AWS_ACCOUNT }}:role/github-actions-s3-upload-role"
           aws-region: us-east-2
 
       - name: Sync files to S3 bucket
