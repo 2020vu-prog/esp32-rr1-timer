@@ -43,12 +43,12 @@ jobs:
       - name: Setup AWS CLI
         uses: aws-actions/configure-aws-credentials@v1
         if: env.AWS_ACCOUNT != ''
-
         with:
           role-to-assume: "arn:aws:iam::${{ env.AWS_ACCOUNT }}:role/github-actions-s3-upload-role"
           aws-region: us-east-2
 
       - name: Sync files to S3 bucket
+        if: env.AWS_ACCOUNT != ''
         run: |
-          aws s3 cp  --cache-control 'max-age=180' build/esp32-rr1-timer.bin  s3://svelte-static-20221204164305433000000002/firmware/esp32-rr1-timer.bin
+          aws s3 cp  --cache-control 'max-age=180' build/esp32-rr1-timer.bin  s3://${{ env.AWS_BUCKET }}/firmware/esp32-rr1-timer.bin
 
