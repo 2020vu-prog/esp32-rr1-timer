@@ -6,7 +6,7 @@
 #include "rr1_pin_defs.h"
 
 #define GPIO_PIN_LASER RR1_PIN_VISIBLE_LASER
-#define GPIO_PIN_LED 27
+#define GPIO_PIN_LED RR1_PIN_SEEED_C5_ONBOARD_LED
 
 const static char *TAG = "rr1_blink";
 bool error_recap[ERROR_PRI_MAX];
