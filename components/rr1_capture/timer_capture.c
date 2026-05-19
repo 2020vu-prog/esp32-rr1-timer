@@ -172,7 +172,7 @@ capture_channel_setup(pindef_t *pd, mcpwm_cap_timer_handle_t cap_timer) {
   return cap_local_chan_h;
 }
 static mcpwm_cap_timer_handle_t gcap_timer = NULL;
-#define TPS61040_ENABLE_GPIO 10
+#define TPS61040_ENABLE_GPIO RR1_PIN_12V_ENABLE
 esp_err_t TPS61040_init() {
   // Configure the GPIO pin for TPS61040 enable
   gpio_config_t io_conf = {};
