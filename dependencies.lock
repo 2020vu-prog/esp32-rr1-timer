@@ -1,0 +1,65 @@
+dependencies:
+  espressif/button:
+    component_hash: d0afa32f0e50d60bc0c6fc23f7eea98adc6b02cfe70b590bc52c23c506745287
+    dependencies:
+    - name: espressif/cmake_utilities
+      registry_url: https://components.espressif.com
+      require: private
+      version: '*'
+    - name: idf
+      require: private
+      version: '>=4.0'
+    source:
+      registry_url: https://components.espressif.com/
+      type: service
+    version: 4.1.6
+  espressif/cjson:
+    component_hash: e788323270d90738662d66fffa910bfe1fba019bba087f01557e70c40485b469
+    dependencies:
+    - name: idf
+      require: private
+      version: '>=5.0'
+    source:
+      registry_url: https://components.espressif.com/
+      type: service
+    version: 1.7.19~2
+  espressif/cmake_utilities:
+    component_hash: 05165f30922b422b4b90c08845e6d449329b97370fbd06309803d8cb539d79e3
+    dependencies:
+    - name: idf
+      require: private
+      version: '>=4.1'
+    source:
+      registry_url: https://components.espressif.com
+      type: service
+    version: 1.1.1
+  espressif/qrcode:
+    component_hash: 3b493771bc5d6ad30cbf87c25bf784aada8a08c941504355b55d6b75518ed7bc
+    dependencies: []
+    source:
+      registry_url: https://components.espressif.com/
+      type: service
+    version: 0.1.0~2
+  idf:
+    source:
+      type: idf
+    version: 5.5.4
+  igrr/libnmea:
+    component_hash: d6e78e853e75882c17cd4f200d110b84824e728cefbb84152227f0f4f98d8a50
+    dependencies:
+    - name: idf
+      require: private
+      version: '>=4.2'
+    source:
+      registry_url: https://components.espressif.com/
+      type: service
+    version: 0.2.1
+direct_dependencies:
+- espressif/button
+- espressif/cjson
+- espressif/qrcode
+- idf
+- igrr/libnmea
+manifest_hash: ff7641d6fe96684c684f5d500340a82a72c72840ce8cbd3e54db19311b8a8060
+target: esp32c5
+version: 2.0.0
