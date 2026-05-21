@@ -3,14 +3,17 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "nmea.h"
-#include "nmea_example.h"
+#include "nmea_rr1.h"
+
+#include "rr1_pin_defs.h"
+
 #include "sdkconfig.h"
 #include <stdio.h>
 
 #include "esp_log.h"
 
 #define UART_NUM CONFIG_EXAMPLE_UART_NUM
-#define UART_RX_PIN CONFIG_EXAMPLE_UART_RX
+#define UART_RX_PIN RR1_PIN_GPS_TX // gps tx wired to rx of esp32
 #define UART_RX_BUF_SIZE (1024)
 
 static char s_buf[UART_RX_BUF_SIZE + 1];
@@ -18,7 +21,7 @@ static size_t s_total_bytes;
 static char *s_last_buf_end;
 
 static const char *TAG = "nmea_uart";
-void nmea_example_init_interface(void) {
+void nmea_rr1_init_interface(void) {
   uart_config_t uart_config = {
       .baud_rate = 9600,
       .data_bits = UART_DATA_8_BITS,
@@ -36,8 +39,8 @@ void nmea_example_init_interface(void) {
       uart_driver_install(UART_NUM, UART_RX_BUF_SIZE * 2, 0, 0, NULL, 0));
 }
 
-void nmea_example_read_line(char **out_line_buf, size_t *out_line_len,
-                            int timeout_ms) {
+void nmea_rr1_read_line(char **out_line_buf, size_t *out_line_len,
+                        int timeout_ms) {
   *out_line_buf = NULL;
   *out_line_len = 0;
 

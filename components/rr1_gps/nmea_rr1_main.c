@@ -14,7 +14,7 @@
 #include "gptxt.h"
 #include "gpvtg.h"
 #include "nmea.h"
-#include "nmea_example.h"
+#include "nmea_rr1.h"
 #include <stdio.h>
 
 static void read_and_parse_nmea();
@@ -22,7 +22,7 @@ static void read_and_parse_nmea();
 static const char *TAG = "nmea_main";
 void nmea_main(void *pvParameter) {
   ESP_LOGI(TAG, "Initializing NMEA ");
-  nmea_example_init_interface();
+  nmea_rr1_init_interface();
   read_and_parse_nmea();
 }
 
@@ -34,8 +34,8 @@ static void read_and_parse_nmea() {
 
     char *start;
     size_t length;
-    // nmea_example_read_line(&start, &length, 100 /* ms */);
-    nmea_example_read_line(&start, &length, 250 /* ms */);
+    // nmea_rr1_read_line(&start, &length, 100 /* ms */);
+    nmea_rr1_read_line(&start, &length, 250 /* ms */);
 
     if (length == 0) {
       continue;

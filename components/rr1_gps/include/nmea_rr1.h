@@ -5,7 +5,7 @@
 /**
  * @brief Initialize the interface connected to the GPS (I2C or UART)
  */
-void nmea_example_init_interface(void);
+void nmea_rr1_init_interface(void);
 
 /**
  * @brief Get one NMEA message line from the GPS.
@@ -18,8 +18,8 @@ void nmea_example_init_interface(void);
  * @param[out[ out_line_len  length of the message, in bytes
  * @param[in] timeout_ms  timeout for reading the message, in milliseconds
  */
-void nmea_example_read_line(char **out_line_buf, size_t *out_line_len,
-                            int timeout_ms);
+void nmea_rr1_read_line(char **out_line_buf, size_t *out_line_len,
+                        int timeout_ms);
 
 void nmea_main(void *pvParameter);
 
