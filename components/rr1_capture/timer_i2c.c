@@ -3,20 +3,21 @@
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "rr1_pin_defs.h"
 #include <stdio.h>
 
 #define TAG "LIS3DH"
 
 // I2C config
 #define I2C_PORT 0
-#define I2C_SDA_PIN 23
-#define I2C_SCL_PIN 24
+#define I2C_SDA_PIN RR1_PIN_I2C_DATA
+#define I2C_SCL_PIN RR1_PIN_I2C_CLK
 #define I2C_FREQ_HZ 400000
 
 #define LIS3DH_ADDR 0x18 // or 0x19 depending on SA0
 
 // GPIO interrupt pin
-#define LIS3DH_INT1_GPIO 1
+#define LIS3DH_INT1_GPIO RR1_PIN_MOTION_INT
 
 static i2c_master_bus_handle_t bus_handle;
 static i2c_master_dev_handle_t dev_handle;
