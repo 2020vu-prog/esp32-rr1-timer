@@ -102,9 +102,9 @@ void rr1_i2c_tap_init(void) {
   // CTRL3: Click interrupt on INT1 pin
   ESP_ERROR_CHECK(lis3dh_write_reg(LIS3DH_REG_CTRL3, 0x80));
   // CLICK_CFG: Enable double tap detection on all axes (or 0x15 for single tap)
-  ESP_ERROR_CHECK(lis3dh_write_reg(LIS3DH_REG_CLICK_CFG, 0x2A));
+  ESP_ERROR_CHECK(lis3dh_write_reg(LIS3DH_REG_CLICK_CFG, 0x15));
   // CLICK_THS: Set tap threshold
-  ESP_ERROR_CHECK(lis3dh_write_reg(LIS3DH_REG_CLICK_THS, 0x15));
+  ESP_ERROR_CHECK(lis3dh_write_reg(LIS3DH_REG_CLICK_THS, 0x20));
   // CLICK Time Limits (Adjust based on timing needs)
   ESP_ERROR_CHECK(lis3dh_write_reg(LIS3DH_REG_TIME_LIMIT, 0x10)); // Time limit
   ESP_ERROR_CHECK(
