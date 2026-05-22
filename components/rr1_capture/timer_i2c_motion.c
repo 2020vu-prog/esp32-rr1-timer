@@ -119,7 +119,7 @@ void gpio_init(TaskHandle_t task_handle) {
 }
 
 // --- Main ---
-void rr1_i2c_init(void) {
+void rr1_i2c_motion_init(void) {
   i2c_init();
   lis3dh_init();
 
