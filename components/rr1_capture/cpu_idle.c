@@ -8,7 +8,7 @@
 #include <stdlib.h>
 
 // Increase this if print_real_time_stats returns ESP_ERR_INVALID_SIZE
-#define ARRAY_SIZE_OFFSET 5
+#define ARRAY_SIZE_OFFSET 7
 
 const char *TAG = "cpu_idle";
 typedef struct {
