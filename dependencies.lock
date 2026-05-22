@@ -44,11 +44,22 @@ dependencies:
     source:
       type: idf
     version: 5.5.4
+  igrr/libnmea:
+    component_hash: d6e78e853e75882c17cd4f200d110b84824e728cefbb84152227f0f4f98d8a50
+    dependencies:
+    - name: idf
+      require: private
+      version: '>=4.2'
+    source:
+      registry_url: https://components.espressif.com/
+      type: service
+    version: 0.2.1
 direct_dependencies:
 - espressif/button
 - espressif/cjson
 - espressif/qrcode
 - idf
-manifest_hash: 699709c535ecf345dd492fc278a71cfdcb8cebef2691a4fb6ca2d4565f5d1f6d
+- igrr/libnmea
+manifest_hash: ff7641d6fe96684c684f5d500340a82a72c72840ce8cbd3e54db19311b8a8060
 target: esp32c5
 version: 2.0.0
