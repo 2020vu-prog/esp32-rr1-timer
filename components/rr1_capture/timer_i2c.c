@@ -70,7 +70,8 @@ void lis3dh_init(void) {
   // 0x2A = XH | YH | ZH
 
   // INT1_THS: threshold (~16 mg/LSB @2g)
-  lis3dh_write(0x32, 0x10); // adjust sensitivity
+  // lis3dh_write(0x32, 0x10); // adjust sensitivity
+  lis3dh_write(0x32, 0x01); // adjust sensitivity
 
   // INT1_DURATION: duration (number of samples)
   lis3dh_write(0x33, 0x01);

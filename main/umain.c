@@ -27,6 +27,7 @@
 #include "timer_capture.h"
 
 #include "get_mqtt_creds.h"
+#include "nmea_rr1.h"
 #include "quad_uint32.h"
 #include "timer_i2c.h"
 #include "timer_mqtt.h"
@@ -89,6 +90,7 @@ void app_main(void) {
   ESP_LOGI(TAG, "app_main: Hello World! runumber: %s", GITHUB_RUN_NUMBER);
   // TODO:  check for new version. no repeat updates to same ver!
   xTaskCreate(&simple_ota_example_task, "ota_task", 8192, NULL, 5, NULL);
+  xTaskCreate(&nmea_main, "nmea_main", 8192, NULL, 5, NULL);
 
   const esp_app_desc_t *ad = esp_app_get_description();
   while (1) {
