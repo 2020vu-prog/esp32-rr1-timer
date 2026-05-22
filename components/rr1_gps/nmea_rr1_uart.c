@@ -58,7 +58,7 @@ void nmea_rr1_read_line(char **out_line_buf, size_t *out_line_len,
   int read_bytes = uart_read_bytes(UART_NUM, (uint8_t *)s_buf + s_total_bytes,
                                    UART_RX_BUF_SIZE - s_total_bytes,
                                    pdMS_TO_TICKS(timeout_ms));
-  ESP_LOGI(TAG, "uart_read_bytes: read %d bytes [%d]", read_bytes,
+  ESP_LOGD(TAG, "uart_read_bytes: read %d bytes [%d]", read_bytes,
            s_total_bytes);
   if (read_bytes <= 0) {
     return;
