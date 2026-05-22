@@ -46,7 +46,7 @@ static esp_err_t lis3dh_read_reg(uint8_t reg, uint8_t *data) {
 }
 
 // GPIO Interrupt Task
-static void gpio_task_example(void *arg) {
+static void gpio_lis3dh_tap_task(void *arg) {
   uint32_t io_num;
   uint8_t click_src;
 
@@ -124,7 +124,7 @@ void rr1_i2c_tap_init(void) {
 
   // Create a queue to handle gpio event from ISR
   gpio_evt_queue = xQueueCreate(10, sizeof(uint32_t));
-  xTaskCreate(gpio_task_example, "gpio_task_example", 2048, NULL, 10, NULL);
+  xTaskCreate(gpio_lis3dh_tap_task, "LIS3DH_TAP", 2048, NULL, 10, NULL);
 
   // Install gpio isr service and hook isr handler
   ESP_ERROR_CHECK(gpio_install_isr_service(0));
