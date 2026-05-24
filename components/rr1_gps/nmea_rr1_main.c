@@ -18,10 +18,38 @@
 #include "nmea.h"
 #include "nmea_rr1.h"
 #include <stdio.h>
+#include <time.h>
 
 static void read_and_parse_nmea();
 
 static const char *TAG = "nmea_main";
+#include <math.h>
+#include <stdint.h>
+#include <stdio.h>
+
+/**
+ * Converts Degrees and Decimal Minutes to a 64-bit scaled integer.
+ * @param degrees The whole degrees part.
+ * @param minutes The decimal minutes part.
+ * @param is_negative Set to 1 for West/South, 0 for East/North.
+ * @return A 64-bit integer scaled by 1,000,000,000.
+ */
+int64_t ddm_to_int64(nmea_position *pos) {
+  // 1. Convert DDM to Decimal Degrees (DD)
+  double dd = (double)pos->degrees + (pos->minutes / 60.0);
+
+  // 3. Scale to 64-bit integer (using 10^9 for nano-degree precision)
+  // Precision: ~0.1mm at the equator
+  const double SCALE = 1000000000.0;
+
+  int64_t rc = (int64_t)round(dd * SCALE);
+  if (pos->cardinal == NMEA_CARDINAL_DIR_WEST ||
+      pos->cardinal == NMEA_CARDINAL_DIR_SOUTH) {
+    rc *= -1;
+  }
+  return rc;
+}
+
 void nmea_main(void *pvParameter) {
   ESP_LOGI(TAG, "Initializing NMEA ");
   nmea_rr1_init_interface();
@@ -77,38 +105,52 @@ static void read_and_parse_nmea() {
         ESP_LOGI(TAG, "  Degrees: %d", pos->latitude.degrees);
         ESP_LOGI(TAG, "  Minutes: %f", pos->latitude.minutes);
         ESP_LOGI(TAG, "  Cardinal: %c", (char)pos->latitude.cardinal);
-        strftime(fmt_buf, sizeof(fmt_buf), "%H:%M:%S", &pos->time);
+        ESP_LOGI(TAG, "lat %" PRId64 " ,%" PRId64, ddm_to_int64(&pos->latitude),
+                 ddm_to_int64(&pos->longitude));
+        strftime(fmt_buf, sizeof(fmt_buf), "%Y:%m:%d %H:%M:%S", &pos->time);
         ESP_LOGI(TAG, "Time: %s", fmt_buf);
+        time_t gps_epoch_utc = mktime(&pos->time);
+        time_t now;
+        time(&now);
+        int delta = now - gps_epoch_utc;
+        ESP_LOGI(TAG, "GPGLL Delta %d", delta);
       }
 
-      if (false && NMEA_GPRMC == data->type) {
+      if (NMEA_GPRMC == data->type) {
         ESP_LOGI(TAG, "GPRMC sentence");
         nmea_gprmc_s *pos = (nmea_gprmc_s *)data;
-        ESP_LOGI(TAG, "Longitude:\n");
-        ESP_LOGI(TAG, "  Degrees: %d\n", pos->longitude.degrees);
-        ESP_LOGI(TAG, "  Minutes: %f\n", pos->longitude.minutes);
-        ESP_LOGI(TAG, "  Cardinal: %c\n", (char)pos->longitude.cardinal);
-        ESP_LOGI(TAG, "Latitude:\n");
-        ESP_LOGI(TAG, "  Degrees: %d\n", pos->latitude.degrees);
-        ESP_LOGI(TAG, "  Minutes: %f\n", pos->latitude.minutes);
-        ESP_LOGI(TAG, "  Cardinal: %c\n", (char)pos->latitude.cardinal);
+        ESP_LOGI(TAG, "Longitude:");
+        ESP_LOGI(TAG, "  Degrees: %d", pos->longitude.degrees);
+        ESP_LOGI(TAG, "  Minutes: %f", pos->longitude.minutes);
+        ESP_LOGI(TAG, "  Cardinal: %c", (char)pos->longitude.cardinal);
+        ESP_LOGI(TAG, "Latitude:");
+        ESP_LOGI(TAG, "  Degrees: %d", pos->latitude.degrees);
+        ESP_LOGI(TAG, "  Minutes: %f", pos->latitude.minutes);
+        ESP_LOGI(TAG, "  Cardinal: %c", (char)pos->latitude.cardinal);
         strftime(fmt_buf, sizeof(fmt_buf), "%d %b %T %Y", &pos->date_time);
-        ESP_LOGI(TAG, "Date & Time: %s\n", fmt_buf);
-        ESP_LOGI(TAG, "Speed, in Knots: %f\n", pos->gndspd_knots);
-        ESP_LOGI(TAG, "Track, in degrees: %f\n", pos->track_deg);
-        ESP_LOGI(TAG, "Magnetic Variation:\n");
-        ESP_LOGI(TAG, "  Degrees: %f\n", pos->magvar_deg);
-        ESP_LOGI(TAG, "  Cardinal: %c\n", (char)pos->magvar_cardinal);
+        ESP_LOGI(TAG, "Date & Time: %s", fmt_buf);
+
+        time_t gps_epoch_utc = mktime(&pos->date_time);
+        time_t now;
+        time(&now);
+        int delta = now - gps_epoch_utc;
+        ESP_LOGW(TAG, "GPRMC Delta %d valid %d", delta, (int)(&pos->valid));
+
+        ESP_LOGI(TAG, "Speed, in Knots: %f", pos->gndspd_knots);
+        ESP_LOGI(TAG, "Track, in degrees: %f", pos->track_deg);
+        ESP_LOGI(TAG, "Magnetic Variation:");
+        ESP_LOGI(TAG, "  Degrees: %f", pos->magvar_deg);
+        ESP_LOGI(TAG, "  Cardinal: %c", (char)pos->magvar_cardinal);
         double adjusted_course = pos->track_deg;
         if (NMEA_CARDINAL_DIR_EAST == pos->magvar_cardinal) {
           adjusted_course -= pos->magvar_deg;
         } else if (NMEA_CARDINAL_DIR_WEST == pos->magvar_cardinal) {
           adjusted_course += pos->magvar_deg;
         } else {
-          ESP_LOGI(TAG, "Invalid Magnetic Variation Direction!\n");
+          ESP_LOGI(TAG, "Invalid Magnetic Variation Direction!");
         }
 
-        ESP_LOGI(TAG, "Adjusted Track (heading): %f\n", adjusted_course);
+        ESP_LOGI(TAG, "Adjusted Track (heading): %f", adjusted_course);
       }
 
       if (false && NMEA_GPGSA == data->type) {
