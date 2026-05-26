@@ -21,6 +21,8 @@ typedef struct {
   uint8_t repeat_count;
 } timer_repeat_t;
 
+atomic_uint visibleLaserEnabled = 0;
+
 static timer_repeat_t longSlowBlink[] = {
     {
 
@@ -284,11 +286,14 @@ int64_t do_blink(enum blink_output_t output, uint64_t nowMs) {
   if (tgt_gpio < 0)
     return INT64_MAX; // Handle invalid GPIO pin
 
-  int level = current_action->state ? 1 : 0;
-  if (handler->invert) {
-    level = !level;
+  int newLevel = current_action->state ? 1 : 0;
+  if (output == BLINK_OUTPUT_LASER && !atomic_load(&visibleLaserEnabled)) {
+    newLevel = 0; // Force laser off if not enabled
   }
-  gpio_set_level(tgt_gpio, level);
+  if (handler->invert) {
+    newLevel = !newLevel;
+  }
+  gpio_set_level(tgt_gpio, newLevel);
 
   return nowMs +
          current_action->period_ms; // Return the period for the next action
@@ -318,3 +323,4 @@ void registerApplyCallback(enum blink_output_t output, applyCallbackFunc f) {
     return; // Handle invalid output type
   bh->applyCallback = f;
 }
+void toggle_visible_laser() { atomic_fetch_xor(&visibleLaserEnabled, 1); }
