@@ -2,6 +2,7 @@
 
 #include "driver/gpio.h"
 #include "esp_log.h"
+#include "esp_timer.h"
 
 #include "rr1_pin_defs.h"
 
@@ -21,7 +22,7 @@ typedef struct {
   uint8_t repeat_count;
 } timer_repeat_t;
 
-atomic_uint visibleLaserEnabled = 0;
+atomic_uint visibleLaserEnabledSeconds = 0;
 
 static timer_repeat_t longSlowBlink[] = {
     {
@@ -267,6 +268,15 @@ int get_gpio_pin(enum blink_output_t output) {
     return -1; // Handle invalid output type
   }
 }
+bool laserTimeout(int enabledSeconds) {
+  int nowSecs = esp_timer_get_time() / 1000000;
+  bool rc = nowSecs - enabledSeconds > 180;
+  if (rc) {
+    atomic_store(&visibleLaserEnabledSeconds, 0);
+    ESP_LOGI(TAG, "Visible laser timeout, disabling laser output");
+  }
+  return rc;
+}
 int64_t do_blink(enum blink_output_t output, uint64_t nowMs) {
   blink_handler_t *handler = get_blink_handler(output);
   if (handler == NULL)
@@ -287,9 +297,13 @@ int64_t do_blink(enum blink_output_t output, uint64_t nowMs) {
     return INT64_MAX; // Handle invalid GPIO pin
 
   int newLevel = current_action->state ? 1 : 0;
-  if (output == BLINK_OUTPUT_LASER && !atomic_load(&visibleLaserEnabled)) {
-    newLevel = 0; // Force laser off if not enabled
+  if (output == BLINK_OUTPUT_LASER) {
+    int enabledSeconds = atomic_load(&visibleLaserEnabledSeconds);
+    if (enabledSeconds == 0 || laserTimeout(enabledSeconds)) {
+      newLevel = 0; // Force laser off if not enabled
+    }
   }
+
   if (handler->invert) {
     newLevel = !newLevel;
   }
@@ -323,4 +337,10 @@ void registerApplyCallback(enum blink_output_t output, applyCallbackFunc f) {
     return; // Handle invalid output type
   bh->applyCallback = f;
 }
-void toggle_visible_laser() { atomic_fetch_xor(&visibleLaserEnabled, 1); }
+void toggle_visible_laser() {
+  int nowSecs = esp_timer_get_time() / 1000000;
+
+  int enabledSeconds = atomic_load(&visibleLaserEnabledSeconds);
+  enabledSeconds = enabledSeconds == 0 ? nowSecs : 0;
+  atomic_store(&visibleLaserEnabledSeconds, enabledSeconds);
+}
