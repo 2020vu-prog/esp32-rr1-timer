@@ -105,7 +105,7 @@ static void read_and_parse_nmea() {
         ESP_LOGI(TAG, "  Degrees: %d", pos->latitude.degrees);
         ESP_LOGI(TAG, "  Minutes: %f", pos->latitude.minutes);
         ESP_LOGI(TAG, "  Cardinal: %c", (char)pos->latitude.cardinal);
-        ESP_LOGI(TAG, "lat %" PRId64 " ,%" PRId64, ddm_to_int64(&pos->latitude),
+        ESP_LOGI(TAG, "lat %" PRId64 ", %" PRId64, ddm_to_int64(&pos->latitude),
                  ddm_to_int64(&pos->longitude));
         strftime(fmt_buf, sizeof(fmt_buf), "%Y:%m:%d %H:%M:%S", &pos->time);
         ESP_LOGI(TAG, "Time: %s", fmt_buf);
