@@ -338,6 +338,7 @@ void registerApplyCallback(enum blink_output_t output, applyCallbackFunc f) {
   bh->applyCallback = f;
 }
 void toggle_visible_laser() {
+  ESP_LOGI(TAG, "Toggling visible laser output");
   int nowSecs = esp_timer_get_time() / 1000000;
 
   int enabledSeconds = atomic_load(&visibleLaserEnabledSeconds);
