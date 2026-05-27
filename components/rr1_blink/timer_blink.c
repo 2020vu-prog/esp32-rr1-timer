@@ -268,7 +268,12 @@ int get_gpio_pin(enum blink_output_t output) {
     return -1; // Handle invalid output type
   }
 }
-bool laserTimeout(int enabledSeconds) {
+bool laserTimeout() {
+  int enabledSeconds = atomic_load(&visibleLaserEnabledSeconds);
+  if (enabledSeconds == 0) {
+    return true; // Not enabled
+  }
+
   int nowSecs = esp_timer_get_time() / 1000000;
   bool rc = nowSecs - enabledSeconds > 180;
   if (rc) {
@@ -298,8 +303,7 @@ int64_t do_blink(enum blink_output_t output, uint64_t nowMs) {
 
   int newLevel = current_action->state ? 1 : 0;
   if (output == BLINK_OUTPUT_LASER) {
-    int enabledSeconds = atomic_load(&visibleLaserEnabledSeconds);
-    if (enabledSeconds == 0 || laserTimeout(enabledSeconds)) {
+    if (laserTimeout()) {
       newLevel = 0; // Force laser off if not enabled
     }
   }
