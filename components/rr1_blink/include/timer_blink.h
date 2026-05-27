@@ -1,5 +1,6 @@
 
 #pragma once
+#include <stdatomic.h>
 #include <stdbool.h>
 #include <stdint.h>
 
@@ -34,3 +35,4 @@ void apply_blink_pattern(enum blink_output_t output,
 void set_error_priority(enum error_pri_t pri, bool isActive);
 bool get_error_priority(enum error_pri_t pri);
 int get_transition_count(enum error_pri_t pri);
+void toggle_visible_laser();

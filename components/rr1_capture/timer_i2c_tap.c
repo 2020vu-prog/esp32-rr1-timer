@@ -6,6 +6,7 @@
 #include "freertos/queue.h"
 #include "freertos/task.h"
 #include <stdio.h>
+#include <timer_blink.h>
 
 #include "rr1_pin_defs.h"
 
@@ -33,6 +34,10 @@ static const char *TAG = "LIS3DH_TAP";
 static i2c_master_dev_handle_t i2c_dev_handle;
 static QueueHandle_t gpio_evt_queue = NULL;
 
+#define RECENT_CLICKS_SIZE 10
+static uint8_t recentClickIndex = 0; // Index for circular buffer
+static uint64_t recentClicks[RECENT_CLICKS_SIZE] = {
+    0}; // Array to store recent click timestamps
 // I2C Write Helper
 static esp_err_t lis3dh_write_reg(uint8_t reg, uint8_t data) {
   uint8_t write_buffer[2] = {reg, data};
@@ -44,8 +49,25 @@ static esp_err_t lis3dh_write_reg(uint8_t reg, uint8_t data) {
 static esp_err_t lis3dh_read_reg(uint8_t reg, uint8_t *data) {
   return i2c_master_transmit_receive(i2c_dev_handle, &reg, 1, data, 1, -1);
 }
+void audit_tap_history() {
+  uint64_t now = esp_timer_get_time();
+  int tapCount = 0;
 
-// GPIO Interrupt Task
+  // Count taps in the last 5 seconds (5,000,000 microseconds)
+  for (int i = 0; i < RECENT_CLICKS_SIZE; i++) {
+    if (recentClicks[i] > now - 5000000) {
+      tapCount++;
+    }
+  }
+
+  ESP_LOGI(TAG, "Taps in last 5 seconds: %d", tapCount);
+  if (tapCount >= 5) {
+    memcpy(recentClicks, (uint64_t[RECENT_CLICKS_SIZE]){0},
+           sizeof(recentClicks));
+    toggle_visible_laser();
+  }
+}
+// GPIO Interrupt receive Task
 static void gpio_lis3dh_tap_task(void *arg) {
   uint32_t io_num;
   uint8_t click_src;
@@ -61,6 +83,14 @@ static void gpio_lis3dh_tap_task(void *arg) {
         ESP_LOGI(TAG, "Double Tap Detected! CLICK_SRC: 0x%02X", click_src);
       } else if (click_src & 0x10) { // SCLICK bit is set (0x10)
         ESP_LOGI(TAG, "Single Tap Detected! CLICK_SRC: 0x%02X", click_src);
+        recentClicks[recentClickIndex] =
+            esp_timer_get_time(); // Store timestamp of this tap
+        recentClickIndex =
+            (recentClickIndex + 1) %
+            RECENT_CLICKS_SIZE; // Move to next index in circular buffer
+
+        audit_tap_history(); // Call function to analyze tap history for
+                             // patterns
       }
     }
   }
@@ -101,7 +131,8 @@ void rr1_i2c_tap_init(void) {
   ESP_ERROR_CHECK(lis3dh_write_reg(LIS3DH_REG_CTRL1, 0x57));
   // CTRL3: Click interrupt on INT1 pin
   ESP_ERROR_CHECK(lis3dh_write_reg(LIS3DH_REG_CTRL3, 0x80));
-  // CLICK_CFG: Enable double tap detection on all axes (or 0x15 for single tap)
+  // CLICK_CFG: Enable double tap detection on all axes (or 0x15 for single
+  // tap)
   ESP_ERROR_CHECK(lis3dh_write_reg(LIS3DH_REG_CLICK_CFG, 0x15));
   // CLICK_THS: Set tap threshold
   ESP_ERROR_CHECK(lis3dh_write_reg(LIS3DH_REG_CLICK_THS, 0x20));
