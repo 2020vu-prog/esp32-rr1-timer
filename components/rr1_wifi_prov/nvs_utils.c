@@ -125,7 +125,9 @@ void nvs_set(char *namespace, char *key, char *value) {
   nvs_close(handle);
 }
 void nvs_get_rr1_host(char *out_value, size_t max_len) {
-  char ssid[40] = "" get_wifi_ssid(ssid);
+  char ssid[40] = "";
+  get_wifi_ssid(ssid);
+
   /*
    nvs_get("rr1", "dns_host", out_value, max_len);
    if (strlen(out_value) == 0) {
@@ -133,6 +135,7 @@ void nvs_get_rr1_host(char *out_value, size_t max_len) {
      strncpy(out_value, "test.rr1.us", max_len);
    }
   */
+
   if (strncmp(ssid, "UB060.TEST", 40) == 0) {
     strncpy(out_value, "test.rr1.us", max_len);
   } else {
