@@ -2,6 +2,7 @@
 
 #include "driver/gpio.h"
 #include "esp_log.h"
+#include "esp_timer.h"
 
 #include "rr1_pin_defs.h"
 
@@ -20,6 +21,8 @@ typedef struct {
   timer_action_t *actions;
   uint8_t repeat_count;
 } timer_repeat_t;
+
+atomic_uint visibleLaserEnabledSeconds = 0;
 
 static timer_repeat_t longSlowBlink[] = {
     {
@@ -265,6 +268,20 @@ int get_gpio_pin(enum blink_output_t output) {
     return -1; // Handle invalid output type
   }
 }
+bool laserTimeout() {
+  int enabledSeconds = atomic_load(&visibleLaserEnabledSeconds);
+  if (enabledSeconds == 0) {
+    return true; // Not enabled
+  }
+
+  int nowSecs = esp_timer_get_time() / 1000000;
+  bool rc = nowSecs - enabledSeconds > 180;
+  if (rc) {
+    atomic_store(&visibleLaserEnabledSeconds, 0);
+    ESP_LOGI(TAG, "Visible laser timeout, disabling laser output");
+  }
+  return rc;
+}
 int64_t do_blink(enum blink_output_t output, uint64_t nowMs) {
   blink_handler_t *handler = get_blink_handler(output);
   if (handler == NULL)
@@ -284,11 +301,17 @@ int64_t do_blink(enum blink_output_t output, uint64_t nowMs) {
   if (tgt_gpio < 0)
     return INT64_MAX; // Handle invalid GPIO pin
 
-  int level = current_action->state ? 1 : 0;
-  if (handler->invert) {
-    level = !level;
+  int newLevel = current_action->state ? 1 : 0;
+  if (output == BLINK_OUTPUT_LASER) {
+    if (laserTimeout()) {
+      newLevel = 0; // Force laser off if not enabled
+    }
   }
-  gpio_set_level(tgt_gpio, level);
+
+  if (handler->invert) {
+    newLevel = !newLevel;
+  }
+  gpio_set_level(tgt_gpio, newLevel);
 
   return nowMs +
          current_action->period_ms; // Return the period for the next action
@@ -317,4 +340,12 @@ void registerApplyCallback(enum blink_output_t output, applyCallbackFunc f) {
   if (bh == NULL)
     return; // Handle invalid output type
   bh->applyCallback = f;
+}
+void toggle_visible_laser() {
+  ESP_LOGI(TAG, "Toggling visible laser output");
+  int nowSecs = esp_timer_get_time() / 1000000;
+
+  int enabledSeconds = atomic_load(&visibleLaserEnabledSeconds);
+  enabledSeconds = enabledSeconds == 0 ? nowSecs : 0;
+  atomic_store(&visibleLaserEnabledSeconds, enabledSeconds);
 }
