@@ -214,9 +214,13 @@ void https_request_discover(char *host_name) {
 
   char *buffer = malloc(BUFLEN + 1);
   memset(buffer, 0, BUFLEN + 1);
-
+  char dns_host[64];
+  nvs_get_rr1_host(dns_host, sizeof(dns_host));
+  char url[256];
+  snprintf(url, sizeof(url), "https://%s/app/iot/discover", dns_host);
+  ESP_LOGI(TAG, "Discover URL: %s", url);
   esp_http_client_config_t config = {
-      .url = "https://test.rr1.us/app/iot/discover",
+      .url = url,
       .crt_bundle_attach =
           esp_crt_bundle_attach, // Uses built-in certificate bundle
       .transport_type = HTTP_TRANSPORT_OVER_SSL,

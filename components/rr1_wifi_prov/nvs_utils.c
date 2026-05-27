@@ -12,6 +12,8 @@
 
 #include "esp_random.h"
 #include "rr1_wifi.h"
+#include "timer_health.h"
+
 const static char *TAG = "nvs_utils";
 void nvs_dumprr1() {
 
@@ -123,10 +125,22 @@ void nvs_set(char *namespace, char *key, char *value) {
   nvs_close(handle);
 }
 void nvs_get_rr1_host(char *out_value, size_t max_len) {
-  nvs_get("rr1", "dns_host", out_value, max_len);
-  if (strlen(out_value) == 0) {
-    ESP_LOGW(TAG, "rr1 dns_host not found in NVS");
+  char ssid[40] = "";
+  get_wifi_ssid(ssid);
+
+  /*
+   nvs_get("rr1", "dns_host", out_value, max_len);
+   if (strlen(out_value) == 0) {
+     ESP_LOGW(TAG, "rr1 dns_host not found in NVS");
+     strncpy(out_value, "test.rr1.us", max_len);
+   }
+  */
+
+  if (strncmp(ssid, "UB060.TEST", 40) == 0) {
     strncpy(out_value, "test.rr1.us", max_len);
+  } else {
+    ESP_LOGW(TAG, "WiFi SSID not known, falling back to default host");
+    strncpy(out_value, "go.rr1.us", max_len);
   }
 }
 void nvs_get_rr1_apikey(char *out_value, size_t max_len) {
