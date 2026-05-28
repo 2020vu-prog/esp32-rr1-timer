@@ -36,8 +36,8 @@ int nextHist = 0;
 // int recentHist = 0;
 int nextXmitHist = 0;
 
-inline int dec_hist(int h) { return (h - 1) & HIST_MAX; }
-inline int inc_hist(int h) { return (h + 1) & HIST_MAX; }
+int dec_hist(int h) { return timer_hist_dec(h); }
+int inc_hist(int h) { return timer_hist_inc(h); }
 
 void timer_hist_init() {
   ESP_LOGI(TAG, "timer_hist_init: BEGIN");
@@ -50,7 +50,7 @@ void timer_hist_init() {
   test_ghandle();
   ESP_LOGI(TAG, "timer_hist_init: END");
 }
-uint64_t msecsToTicks(uint64_t ms) { return ms * 1000; }
+uint64_t msecsToTicks(uint64_t ms) { return timer_hist_msecs_to_ticks(ms); }
 void potentialRollCandidate(lane_transition_t *hp) {
   // lane_transition_t *hp = &hist[recentHist];
   if (candidateBlock.expiryTicks64 < hp->cap_value64) {
@@ -72,42 +72,11 @@ void potentialRollCandidate(lane_transition_t *hp) {
   recentState[hp->lane_index] = *hp;
 }
 void process_lane_transition(lane_transition_t *hp, lane_finish_t *lf) {
-  if (!lf->nose || hp->cap_value64 < lf->nose->cap_value64) {
-    lf->nose = hp;
-  }
-  if (!lf->tail || hp->cap_value64 > lf->tail->cap_value64) {
-    lf->tail = hp;
-  }
-  lf->transition_count += 1;
+  timer_hist_process_lane_transition(hp, lf);
 }
 
-void lfError(lane_finish_t *lf, char errCode) { lf->errs[0] = errCode; }
 void auditFinish(lane_finish_t *lf) {
-  if (!lf->nose) {
-    lfError(lf, FE_MISSING_NOSE);
-    return;
-  }
-  if (!lf->tail) {
-    lfError(lf, FE_MISSING_TAIL);
-    return;
-  }
-  int carLenTicks = lf->tail->cap_value64 - lf->nose->cap_value64;
-  if (carLenTicks > msecsToTicks(timerConfig.maxCarMs)) {
-    lfError(lf, FE_MAXCARLEN);
-    return;
-  }
-  if (carLenTicks < msecsToTicks(timerConfig.minCarMs)) {
-    lfError(lf, FE_MINCARLEN);
-    return;
-  }
-  // no perfs s/b 2 transitions (nose, tail)
-  // one perfs s/b 4 transitions (nose, beginPerf,endPerf, tail)
-  if (lf->transition_count > (timerConfig.maxPerfs + 1) * 2) {
-    lfError(lf, FE_PERFCOUNT);
-    return;
-  }
-  lfError(lf, FE_NONE);
-  return;
+  timer_hist_audit_finish(lf, &timerConfig);
 }
 void auditCandidateHist() {
   lane_finish_t l12[2] = {};
@@ -234,8 +203,7 @@ void freeRr1TimerPbTimerDataList(Timerpb__TimerDataList *tdl) {
 }
 
 int getXmitHistBacklog() {
-  int backlog = nextHist - nextXmitHist;
-  return backlog & HIST_MAX;
+  return timer_hist_backlog_count(nextHist, nextXmitHist);
 }
 Timerpb__TimerDataList *marshalRr1TimerPbTimerDataList(lane_transition_t *h,
                                                        marshal_recap_t *mrt);
@@ -292,21 +260,14 @@ bool isHealthDue(int tlCount) {
            "isHealthDue: tlCount %d upUs %" PRIu64 " lastHealthUs %" PRIu64
            " healthIntervalMs %d",
            tlCount, upUs, lastHealthUs, healthIntervalMs);
-  if (lastHealthUs == 0 // first time publish, no health sent yet
-      || upUs > lastHealthUs + (healthIntervalMs * 1000)) {
-    // lastHealthUs = upUs;
-    return true;
-  }
-  return false;
+  return timer_hist_health_due(upUs, lastHealthUs, tlCount);
 }
 Timerpb__TimerDataList *marshalRr1TimerPbTimerDataList(lane_transition_t *h,
                                                        marshal_recap_t *mrt) {
 
   int tlCount = getXmitHistBacklog();
   int healthCount = isHealthDue(tlCount) ? 1 : 0;
-  if (tlCount > 20) {
-    tlCount = 20; // cap the backlog to avoid creating huge messages
-  }
+  tlCount = timer_hist_capped_backlog_count(tlCount, 20);
   mrt->laneTransitionCount = tlCount;
   if (tlCount < 1 && healthCount < 1) {
     ESP_LOGI(TAG, "marshalRr1TimerPbTimerDataList: backlog %d empty", tlCount);

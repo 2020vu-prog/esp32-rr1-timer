@@ -1,4 +1,4 @@
-idf_component_register(SRCS "quad_uint32.c" "timer_hist.c" "gps_xlate.c" "timer_mqtt.c" "timer_capture.c" "user_main.c"  "timer_health.c"
+idf_component_register(SRCS "timer_hist_logic.c" "quad_uint32.c" "timer_hist.c" "gps_xlate.c" "timer_mqtt.c" "timer_capture.c" "user_main.c"  "timer_health.c"
 	"timer_stdin.c" "get_mqtt_creds.c"
 	"cpu_idle.c"
 	"timer_i2c_motion.c"
