@@ -11,8 +11,6 @@ void timer_hist_init();
 void th_append(esp_probe_recv_data_t *recv_dataP);
 extern lane_transition_t *hist;
 extern int nextHist;
-int dec_hist(int h);
-int inc_hist(int h);
 
 typedef struct {
   int birthIndex;

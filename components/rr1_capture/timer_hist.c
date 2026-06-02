@@ -36,9 +36,6 @@ int nextHist = 0;
 // int recentHist = 0;
 int nextXmitHist = 0;
 
-int dec_hist(int h) { return timer_hist_dec(h); }
-int inc_hist(int h) { return timer_hist_inc(h); }
-
 void timer_hist_init() {
   ESP_LOGI(TAG, "timer_hist_init: BEGIN");
 
@@ -50,16 +47,16 @@ void timer_hist_init() {
   test_ghandle();
   ESP_LOGI(TAG, "timer_hist_init: END");
 }
-uint64_t msecsToTicks(uint64_t ms) { return timer_hist_msecs_to_ticks(ms); }
 void potentialRollCandidate(lane_transition_t *hp) {
   // lane_transition_t *hp = &hist[recentHist];
   if (candidateBlock.expiryTicks64 < hp->cap_value64) {
     memset(&candidateBlock, 0, sizeof(candidateBlock));
 
-    candidateBlock.birthIndex = dec_hist(nextHist);
+    candidateBlock.birthIndex = timer_hist_dec(nextHist);
     candidateBlock.birthTicks64 = hp->cap_value64;
     candidateBlock.expiryTicks64 =
-        candidateBlock.birthTicks64 + msecsToTicks(timerConfig.clearMs);
+        candidateBlock.birthTicks64 +
+        timer_hist_msecs_to_ticks(timerConfig.clearMs);
     candidateBlock.priorState[0] = recentState[0];
     candidateBlock.priorState[1] = recentState[1];
     getGpsHandle(&candidateBlock.ghandle);
@@ -71,25 +68,19 @@ void potentialRollCandidate(lane_transition_t *hp) {
       xlateCap64(&candidateBlock.ghandle, &hp->cap_value64, &resulTs);
   recentState[hp->lane_index] = *hp;
 }
-void process_lane_transition(lane_transition_t *hp, lane_finish_t *lf) {
-  timer_hist_process_lane_transition(hp, lf);
-}
-
-void auditFinish(lane_finish_t *lf) {
-  timer_hist_audit_finish(lf, &timerConfig);
-}
 void auditCandidateHist() {
   lane_finish_t l12[2] = {};
   //    lane_finish_t l2 = {};
 
-  for (int x = dec_hist(nextHist);
-       hist[x].cap_value64 >= candidateBlock.birthTicks64; x = dec_hist(x)) {
+  for (int x = timer_hist_dec(nextHist);
+       hist[x].cap_value64 >= candidateBlock.birthTicks64;
+       x = timer_hist_dec(x)) {
     ESP_LOGI(TAG, "auditCandidateHist %d %d", x, HIST_MAX);
     lane_transition_t *hp = &hist[x];
-    process_lane_transition(hp, &l12[hp->lane_index]);
+    timer_hist_process_lane_transition(hp, &l12[hp->lane_index]);
   }
   for (int j = 0; j < 2; j++) {
-    auditFinish(&l12[j]);
+    timer_hist_audit_finish(&l12[j], &timerConfig);
   }
   // TODO:  do something with finish
   candidateBlock.auditPending = false;
@@ -109,7 +100,7 @@ void th_append(esp_probe_recv_data_t *recv_dataP) {
   ESP_LOGI(TAG, "th_append gpio:%d state: %d", (int)hpNext->lane_gpio,
            (int)hpNext->lane_result_state);
 
-  nextHist = inc_hist(nextHist);
+  nextHist = timer_hist_inc(nextHist);
   potentialRollCandidate(hpNext);
   // VERY SLOW
   // auditCandidateHist();
@@ -202,9 +193,6 @@ void freeRr1TimerPbTimerDataList(Timerpb__TimerDataList *tdl) {
   free(tdl);
 }
 
-int getXmitHistBacklog() {
-  return timer_hist_backlog_count(nextHist, nextXmitHist);
-}
 Timerpb__TimerDataList *marshalRr1TimerPbTimerDataList(lane_transition_t *h,
                                                        marshal_recap_t *mrt);
 int mqPubDataList() {
@@ -250,7 +238,10 @@ int aba_xmit_b64_json(uint8_t *buffer, size_t packed_size) {
   free(bj64);
   return rc;
 }
-bool isHealthDue(int tlCount) {
+Timerpb__TimerDataList *marshalRr1TimerPbTimerDataList(lane_transition_t *h,
+                                                       marshal_recap_t *mrt) {
+
+  int tlCount = timer_hist_backlog_count(nextHist, nextXmitHist);
   uint64_t upUs = esp_timer_get_time();
   int healthIntervalMs =
       tlCount > 0
@@ -260,13 +251,7 @@ bool isHealthDue(int tlCount) {
            "isHealthDue: tlCount %d upUs %" PRIu64 " lastHealthUs %" PRIu64
            " healthIntervalMs %d",
            tlCount, upUs, lastHealthUs, healthIntervalMs);
-  return timer_hist_health_due(upUs, lastHealthUs, tlCount);
-}
-Timerpb__TimerDataList *marshalRr1TimerPbTimerDataList(lane_transition_t *h,
-                                                       marshal_recap_t *mrt) {
-
-  int tlCount = getXmitHistBacklog();
-  int healthCount = isHealthDue(tlCount) ? 1 : 0;
+  int healthCount = timer_hist_health_due(upUs, lastHealthUs, tlCount) ? 1 : 0;
   tlCount = timer_hist_capped_backlog_count(tlCount, 20);
   mrt->laneTransitionCount = tlCount;
   if (tlCount < 1 && healthCount < 1) {
