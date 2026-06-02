@@ -36,3 +36,5 @@ void set_error_priority(enum error_pri_t pri, bool isActive);
 bool get_error_priority(enum error_pri_t pri);
 int get_transition_count(enum error_pri_t pri);
 void toggle_visible_laser();
+void init_v12_blink(void);
+uint32_t get_v12_blink_ticks(void);

@@ -329,6 +329,7 @@ void init_blink_gpio() {
 }
 void init_blink() {
   init_blink_gpio();
+  init_v12_blink();
   error_recap[ERROR_PRI_WIFI_PROVISIONING] = true;
   error_recap[ERROR_PRI_WIFI_CONNECTION] = true;
   error_recap[ERROR_PRI_MQTT] = true;
