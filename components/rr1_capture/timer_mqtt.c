@@ -84,7 +84,7 @@ void get_device_hostname(char *host_name, size_t max) {
 void init_mq_topic() {
   char host_name[12];
   get_device_hostname(host_name, sizeof(host_name));
-  snprintf(mq_topic, sizeof(mq_topic), "rr1Timer/%s", host_name);
+  snprintf(mq_topic, sizeof(mq_topic), "rr2Timer/%s", host_name);
   snprintf(mqtt_client_id, sizeof(mqtt_client_id), "%s", host_name);
   ESP_LOGI(TAG, "MQTT topic set to: %s", mq_topic);
 }
