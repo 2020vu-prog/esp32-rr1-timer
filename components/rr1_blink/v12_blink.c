@@ -23,8 +23,8 @@ v12_blink_timer_cb(gptimer_handle_t timer,
 
   //  v12_blink_level = !v12_blink_level;
   v12_blink_ticks++;
-  if (v12_blink_ticks % 10 > 0) {
-    v12_blink_level = true; // force on every 10th tick for testing
+  if (v12_blink_ticks % 30 > 9) { // off for two every 20
+    v12_blink_level = true;
   } else {
     v12_blink_level = false;
   }
