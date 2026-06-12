@@ -84,7 +84,7 @@ void get_device_hostname(char *host_name, size_t max) {
 void init_mq_topic() {
   char host_name[12];
   get_device_hostname(host_name, sizeof(host_name));
-  snprintf(mq_topic, sizeof(mq_topic), "rr1Timer/%s", host_name);
+  snprintf(mq_topic, sizeof(mq_topic), "rr2Timer/%s", host_name);
   snprintf(mqtt_client_id, sizeof(mqtt_client_id), "%s", host_name);
   ESP_LOGI(TAG, "MQTT topic set to: %s", mq_topic);
 }
@@ -95,7 +95,8 @@ void time_sync_notification_cb(struct timeval *tv) {
 static void initialize_sntp(void) {
   ESP_LOGI(TAG, "Initializing SNTP");
   esp_sntp_setoperatingmode(SNTP_OPMODE_POLL);
-  esp_sntp_setservername(0, "pool.ntp.org");
+  esp_sntp_set_sync_mode(SNTP_SYNC_MODE_IMMED);
+  esp_sntp_setservername(0, "1.us.pool.ntp.org");
   esp_sntp_set_time_sync_notification_cb(time_sync_notification_cb);
   esp_sntp_init();
   ESP_LOGI(TAG, "SNTP initialization done.");
