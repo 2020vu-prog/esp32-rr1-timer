@@ -137,6 +137,14 @@ int get_transition_count(enum error_pri_t pri) {
 
   return error_transition_count[pri];
 }
+enum error_pri_t get_lowest_active_error_priority() {
+  for (int i = ERROR_PRI_NONE; i < ERROR_PRI_MAX; i++) {
+    if (error_recap[i]) {
+      return i;
+    }
+  }
+  return ERROR_PRI_NONE; // No active errors
+}
 /*
 **
 */
@@ -150,31 +158,25 @@ void set_error_priority(enum error_pri_t pri, bool isActive) {
              error_transition_count[pri]);
   }
   error_recap[pri] = isActive;
-  enum error_pri_t lowest_active_pri = ERROR_PRI_NONE;
-  for (int i = ERROR_PRI_NONE; i < ERROR_PRI_MAX; i++) {
-    if (error_recap[i]) {
-      lowest_active_pri = i;
-      break;
-    }
-  }
+  enum error_pri_t lowest_active_pri = get_lowest_active_error_priority();
+
   // Apply the corresponding blink pattern based on the highest active error
   // priority
   switch (lowest_active_pri) {
   case ERROR_PRI_WIFI_PROVISIONING:
-    apply_blink_pattern(BLINK_OUTPUT_LED,
-                        BLINK_PATTERN_WIFI_PROVISIONING_ERROR);
+    apply_blink_pattern(BLINK_PATTERN_WIFI_PROVISIONING_ERROR);
     break;
   case ERROR_PRI_WIFI_CONNECTION:
-    apply_blink_pattern(BLINK_OUTPUT_LED, BLINK_PATTERN_WIFI_CONNECTION_ERROR);
+    apply_blink_pattern(BLINK_PATTERN_WIFI_CONNECTION_ERROR);
     break;
   case ERROR_PRI_CREDENTIALS:
-    apply_blink_pattern(BLINK_OUTPUT_LED, BLINK_PATTERN_CREDENTIALS_ERROR);
+    apply_blink_pattern(BLINK_PATTERN_CREDENTIALS_ERROR);
     break;
   case ERROR_PRI_MQTT:
-    apply_blink_pattern(BLINK_OUTPUT_LED, BLINK_PATTERN_MQTT_ERROR);
+    apply_blink_pattern(BLINK_PATTERN_MQTT_ERROR);
     break;
   default:
-    apply_blink_pattern(BLINK_OUTPUT_LED, BLINK_PATTERN_OK);
+    apply_blink_pattern(BLINK_PATTERN_OK);
     break;
   }
 }
@@ -195,7 +197,9 @@ timer_repeat_t *get_blink_pattern(enum blink_pattern_t pattern) {
     return NULL; // Handle invalid pattern type
   }
 };
-void apply_blink_pattern(blink_output_t output, enum blink_pattern_t pattern) {
+
+void apply_pin_blink_pattern(blink_output_t output,
+                             enum blink_pattern_t pattern) {
   timer_repeat_t *bp = get_blink_pattern(pattern);
   if (bp == NULL)
     return; // Handle invalid pattern type
@@ -213,6 +217,10 @@ void apply_blink_pattern(blink_output_t output, enum blink_pattern_t pattern) {
   }
 }
 
+void apply_blink_pattern(enum blink_pattern_t pattern) {
+  apply_pin_blink_pattern(BLINK_OUTPUT_LED, pattern);
+  apply_pin_blink_pattern(BLINK_OUTPUT_LASER, pattern);
+}
 blink_handler_t *get_blink_handler(enum blink_output_t output) {
   switch (output) {
   case BLINK_OUTPUT_LASER:
@@ -269,6 +277,11 @@ int get_gpio_pin(enum blink_output_t output) {
   }
 }
 bool laserTimeout() {
+
+  enum error_pri_t lowest_active_pri = get_lowest_active_error_priority();
+  if (lowest_active_pri != ERROR_PRI_NONE) {
+    return false; // If any error is active, allow laser
+  }
   int enabledSeconds = atomic_load(&visibleLaserEnabledSeconds);
   if (enabledSeconds == 0) {
     return true; // Not enabled

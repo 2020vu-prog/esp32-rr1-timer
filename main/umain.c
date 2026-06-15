@@ -62,6 +62,8 @@ void app_main(void) {
   ESP_ERROR_CHECK(esp_event_loop_create_default());
 
   xTaskCreate(&capture_main_xtask, "capture_main", 8192, NULL, 5, NULL);
+  rr1_i2c_tap_init();
+  // rr1_i2c_motion_init();
 
   /* This helper function configures Wi-Fi or Ethernet, as selected in
    * menuconfig. Read "Establishing Wi-Fi or Ethernet Connection" section in
@@ -69,7 +71,7 @@ void app_main(void) {
    */
   // init_timer_stdin(); stdin messes up flash from usb
   rr1WifiProv();
-  nvs_dumprr1();
+  // nvs_dumprr1();
 
   // ESP_ERROR_CHECK(example_connect());
 
@@ -83,8 +85,6 @@ void app_main(void) {
   esp_wifi_set_ps(WIFI_PS_NONE);
   https_request_creds();
   mqtt_app_start();
-  rr1_i2c_tap_init();
-  // rr1_i2c_motion_init();
 
   testem();
   // capture_main();

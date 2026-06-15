@@ -30,9 +30,11 @@ typedef void (*applyCallbackFunc)(enum blink_output_t output);
 void registerApplyCallback(enum blink_output_t output, applyCallbackFunc f);
 int64_t do_blink(enum blink_output_t output, uint64_t nowMs);
 void init_blink();
-void apply_blink_pattern(enum blink_output_t output,
-                         enum blink_pattern_t pattern);
+void apply_blink_pattern(enum blink_pattern_t pattern);
+void apply_pin_blink_pattern(enum blink_output_t output,
+                             enum blink_pattern_t pattern);
 void set_error_priority(enum error_pri_t pri, bool isActive);
 bool get_error_priority(enum error_pri_t pri);
+enum error_pri_t get_lowest_active_error_priority();
 int get_transition_count(enum error_pri_t pri);
 void toggle_visible_laser();

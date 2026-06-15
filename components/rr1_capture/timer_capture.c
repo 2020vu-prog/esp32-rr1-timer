@@ -325,7 +325,6 @@ void scheduleMqPubDataList(int delayMs) {
   awakenPoll(); // recalc next poll
 }
 
-void capture_main_xtask(void *pvParameters) { capture_main(); }
 int doPollAll() {
 
   const uint64_t nowMs = esp_timer_get_time() / 1000;
@@ -356,7 +355,8 @@ int doPollAll() {
   }
   return delayMs;
 }
-void capture_main(void) {
+void capture_main_xtask(void *pvParameters) {
+
   init_blink();
   registerApplyCallback(BLINK_OUTPUT_LED, reset_blink_poll);
   registerApplyCallback(BLINK_OUTPUT_LASER, reset_blink_poll);
