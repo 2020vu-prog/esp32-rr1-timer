@@ -67,5 +67,6 @@ lane_state_enum getResultState(mcpwm_capture_edge_t cap_edge);
 #define FE_NONE '0'
 
 int mqPubDataList();
+void timerHistMqPubAcked(int msg_id);
 
 int aba_xmit_b64_json(uint8_t *buffer, size_t packed_size);

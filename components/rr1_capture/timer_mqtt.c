@@ -120,6 +120,19 @@ static void log_error_if_nonzero(const char *message, int error_code) {
  */
 
 static int pubAckPending = 0;
+#define MQ_PENDING_ACK_TIMEOUT_US (30 * 1000 * 1000)
+
+static void clear_pending_mq_msg(const char *reason) {
+  if (aws_mqttHandle->pending_msg_id == 0) {
+    return;
+  }
+
+  ESP_LOGW(TAG, "Clearing pending MQTT msg id %d: %s",
+           aws_mqttHandle->pending_msg_id, reason);
+  aws_mqttHandle->pending_msg_id = 0;
+  aws_mqttHandle->pending_msg_xmit_us = 0;
+}
+
 static void mqtt_event_handler(void *handler_args, esp_event_base_t base,
                                int32_t event_id, void *event_data) {
   ESP_LOGD(TAG,
@@ -161,6 +174,7 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base,
     }
 
     aws_mqttHandle->p_client = NULL;
+    clear_pending_mq_msg("disconnected");
     break;
 
   case MQTT_EVENT_SUBSCRIBED:
@@ -187,6 +201,7 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base,
       if (latency_ms > aws_mqttHandle->max_msg_latency_ms) {
         aws_mqttHandle->max_msg_latency_ms = latency_ms;
       }
+      timerHistMqPubAcked(event->msg_id);
       scheduleMqPubDataList(100); // make sure backlog is caught up
     }
     break;
@@ -197,6 +212,7 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base,
     break;
   case MQTT_EVENT_ERROR:
     ESP_LOGI(TAG, "MQTT_EVENT_ERROR");
+    clear_pending_mq_msg("mqtt error");
     if (event->error_handle->error_type == MQTT_ERROR_TYPE_TCP_TRANSPORT) {
       log_error_if_nonzero("reported from esp-tls",
                            event->error_handle->esp_tls_last_esp_err);
@@ -242,7 +258,7 @@ void mqtt_app_start(void) {
   const esp_mqtt_client_config_t mqtt_cfg = {
       .session =
           {
-              .disable_clean_session = true,
+              .disable_clean_session = false,
               .last_will =
                   {
                       .topic = mq_topic,
@@ -388,8 +404,16 @@ void mq_pub_tags(jsonTagP tagsHead) {
 int mq_pub64(char *msg) {
   // return -8;
   int msg_id = -9;
+  if (aws_mqttHandle->pending_msg_id != 0) {
+    int64_t pending_us =
+        esp_timer_get_time() - aws_mqttHandle->pending_msg_xmit_us;
+    if (pending_us > MQ_PENDING_ACK_TIMEOUT_US) {
+      clear_pending_mq_msg("publish ack timeout");
+    }
+  }
+
   if (aws_mqttHandle->p_client && aws_mqttHandle->pending_msg_id == 0) {
-    ESP_LOGI(TAG, "mq_pub64 sending publish pending msg  %S ", msg);
+    ESP_LOGI(TAG, "mq_pub64 sending publish pending msg  %s ", msg);
     msg_id = esp_mqtt_client_enqueue(aws_mqttHandle->p_client, mq_topic, msg, 0,
                                      1, 0, true);
   } else {
