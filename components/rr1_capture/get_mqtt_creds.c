@@ -7,6 +7,8 @@
 #include "timer_blink.h"
 #include "timer_mqtt.h"
 #include <cJSON.h>
+#include <stdlib.h>
+#include <string.h>
 
 #define BUFLEN 10000
 const static char *TAG = "get_mqtt_creds";
@@ -110,24 +112,38 @@ end:
 }
 
 esp_err_t accum_event_handler(esp_http_client_event_t *evt) {
-  static int buf_used = 0;
-  if (evt == NULL || evt->user_data == NULL) {
+  static size_t buf_used = 0;
+  if (evt == NULL) {
     buf_used = 0;
+    return ESP_OK;
+  }
 
+  if (evt->user_data == NULL) {
     ESP_LOGE(TAG, "Invalid event data");
     return ESP_FAIL;
   }
+
   switch (evt->event_id) {
   case HTTP_EVENT_ON_DATA:
-    // Check if there is data and it's not a chunked response header
-    if (!esp_http_client_is_chunked_response(evt->client)) {
-      ESP_LOGI(TAG, "Chunk received: %.*s\n", evt->data_len, (char *)evt->data);
-      strncat((char *)evt->user_data, (char *)evt->data,
-              MIN(evt->data_len, BUFLEN - buf_used));
-      buf_used += evt->data_len;
-    } else {
-      ESP_LOGI(TAG, "Chunk header received");
+    if (evt->data == NULL || evt->data_len <= 0) {
+      break;
     }
+
+    size_t remaining = BUFLEN - buf_used;
+    size_t copy_len = MIN((size_t)evt->data_len, remaining);
+    if (copy_len > 0) {
+      memcpy((char *)evt->user_data + buf_used, evt->data, copy_len);
+      buf_used += copy_len;
+      ((char *)evt->user_data)[buf_used] = '\0';
+    }
+
+    ESP_LOGI(TAG, "HTTP data received: %d bytes%s", evt->data_len,
+             esp_http_client_is_chunked_response(evt->client) ? " chunked"
+                                                              : "");
+    if (copy_len < (size_t)evt->data_len) {
+      ESP_LOGE(TAG, "Credential response truncated at %d bytes", BUFLEN);
+    }
+
     break;
   // Handle other events like HTTP_EVENT_ERROR or HTTP_EVENT_ON_FINISH
   default:
@@ -150,6 +166,10 @@ void https_request_creds(void) {
 void https_request_auth(char *host_name) {
 
   char *buffer = malloc(BUFLEN + 1);
+  if (buffer == NULL) {
+    ESP_LOGE(TAG, "Failed to allocate credential auth response buffer");
+    return;
+  }
   memset(buffer, 0, BUFLEN + 1);
 
   char authUrl[512];
@@ -213,12 +233,18 @@ void https_request_discover(char *host_name) {
   ESP_LOGI(TAG, "Requesting MQTT credentials...237");
 
   char *buffer = malloc(BUFLEN + 1);
+  if (buffer == NULL) {
+    ESP_LOGE(TAG, "Failed to allocate credential discover response buffer");
+    return;
+  }
   memset(buffer, 0, BUFLEN + 1);
   char dns_host[64];
   nvs_get_rr1_host(dns_host, sizeof(dns_host));
   char url[256];
   snprintf(url, sizeof(url), "https://%s/app/iot/discover", dns_host);
   ESP_LOGI(TAG, "Discover URL: %s", url);
+  accum_event_handler(NULL); // Reset static buffer index
+
   esp_http_client_config_t config = {
       .url = url,
       .crt_bundle_attach =

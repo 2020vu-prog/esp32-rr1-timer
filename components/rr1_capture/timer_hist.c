@@ -15,6 +15,8 @@
 #include "timer_health.h"
 #include "timer_mqtt.h"
 static uint64_t lastHealthUs = 0;
+static marshal_recap_t pendingMqRecap = {};
+static int pendingMqMsgId = -1;
 
 Timerpb__TimerData *marshalRr1TimerPbTimerDataHealth();
 const static char *TAG = "rr1_capture";
@@ -261,13 +263,31 @@ int mqPubDataList() {
   freeRr1TimerPbTimerDataList(tdl);
 
   if (rc > 0) {
-    nextXmitHist = (nextXmitHist + mrt.laneTransitionCount) & HIST_MAX;
-    if (mrt.healthMarshalledUs > 0) {
-      lastHealthUs = mrt.healthMarshalledUs;
-    }
-    decrementMqttPublishCredits();
+    pendingMqMsgId = rc;
+    pendingMqRecap = mrt;
+    ESP_LOGI(TAG, "mqPubDataList: awaiting ack msg_id %d lane count %d", rc,
+             pendingMqRecap.laneTransitionCount);
   }
   return rc;
+}
+
+void timerHistMqPubAcked(int msg_id) {
+  if (pendingMqMsgId != msg_id) {
+    ESP_LOGW(TAG, "timerHistMqPubAcked: ignoring msg_id %d, pending %d", msg_id,
+             pendingMqMsgId);
+    return;
+  }
+
+  nextXmitHist = (nextXmitHist + pendingMqRecap.laneTransitionCount) & HIST_MAX;
+  if (pendingMqRecap.healthMarshalledUs > 0) {
+    lastHealthUs = pendingMqRecap.healthMarshalledUs;
+  }
+  decrementMqttPublishCredits();
+  ESP_LOGI(TAG, "timerHistMqPubAcked: advanced %d transitions for msg_id %d",
+           pendingMqRecap.laneTransitionCount, msg_id);
+
+  pendingMqMsgId = -1;
+  memset(&pendingMqRecap, 0, sizeof(pendingMqRecap));
 }
 int aba_xmit_b64_json(uint8_t *buffer, size_t packed_size) {
   unsigned char *input = buffer;
