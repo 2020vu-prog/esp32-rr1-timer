@@ -2,7 +2,7 @@
 
 name: Build with ESP-IDF v5.5.4
 env:
-  BRANCH_NAME: ${{ github.ref_name }}  # Workflow Level
+  BRANCH_NAME: ${{ github.ref_name }} # Workflow Level
 
 on:
   push:
@@ -12,9 +12,6 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    permissions:
-      id-token: write
-      contents: read
 
     steps:
       - name: Checkout repository
@@ -24,9 +21,6 @@ jobs:
         with:
           sources: "components/**/*.h,components/**/*.c,main/*.h,main/*.c"
 
-      - name: Set environment variables
-        run: |
-          ./tools/aws_env.sh
       - name: Set up ESP-IDF v5.5.4
         uses: espressif/esp-idf-ci-action@v1
         with:
@@ -39,17 +33,35 @@ jobs:
           name: esp-build
           path: build/esp32-rr1-timer.bin
 
+  aws_deploy:
+    if: github.ref_name == 'dev' || github.ref_name == 'go.rr1.us'
+    needs: build
+    runs-on: ubuntu-latest
+    environment: aws
+    permissions:
+      id-token: write
+      contents: read
 
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set environment variables
+        run: |
+          ./tools/aws_env.sh
+
+      - name: Download build artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: esp-build
+          path: build
 
       - name: Setup AWS CLI
         uses: aws-actions/configure-aws-credentials@v6.1.1
-        if: env.AWS_ACCOUNT != ''
         with:
           role-to-assume: "arn:aws:iam::${{ env.AWS_ACCOUNT }}:role/github-actions-s3-upload-role"
           aws-region: us-east-2
 
       - name: Sync files to S3 bucket
-        if: env.AWS_ACCOUNT != ''
         run: |
           aws s3 cp  --cache-control 'max-age=180' build/esp32-rr1-timer.bin  s3://${{ env.AWS_BUCKET }}/firmware/esp32-rr1-timer.bin
-
