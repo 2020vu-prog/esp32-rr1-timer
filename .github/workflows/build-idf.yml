@@ -12,10 +12,20 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
+
+      - name: Download generated protobuf bindings
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ./tools/download_rr1_messages_artifact.sh
+
       - name: Run clang-format
         uses: RafikFarhad/clang-format-github-action@v6
         with:
