@@ -28,3 +28,13 @@ for file in "${required_files[@]}"; do
   mkdir -p "$(dirname "${component_dir}/${file}")"
   cp "${artifact_dir}/${file}" "${component_dir}/${file}"
 done
+
+if command -v clang-format >/dev/null 2>&1; then
+  generated_files=()
+  for file in "${required_files[@]}"; do
+    generated_files+=("${component_dir}/${file}")
+  done
+  clang-format --style=LLVM -i "${generated_files[@]}"
+else
+  echo "clang-format not found; generated files were copied without formatting" >&2
+fi
