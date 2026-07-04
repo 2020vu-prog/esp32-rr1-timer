@@ -90,7 +90,7 @@ static uint64_t nextHealthDueMs(int tlCount, uint64_t nowMs) {
   uint64_t dueUs =
       lastHealthUs + ((uint64_t)getHealthIntervalMs(tlCount) * 1000);
   uint64_t dueMs = (dueUs / 1000) + 1;
-  return dueMs > nowMs ? dueMs : nowMs;
+  return MAX(dueMs, nowMs);
 }
 
 void timer_hist_init() {
