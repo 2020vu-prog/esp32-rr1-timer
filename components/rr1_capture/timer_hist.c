@@ -3,6 +3,7 @@
 #include "mbedtls/base64.h"
 #include "stddef.h"
 #include <string.h>
+#include <sys/param.h>
 
 #include "aws-bandaid.h"
 #include "build_meta.h"
@@ -10,15 +11,31 @@
 #include "esp_heap_caps.h"
 #include "esp_system.h"
 #include "esp_timer.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/semphr.h"
+#include "freertos/task.h"
 #include "rr1_wifi.h"
 #include "timer.pb-c.h"
 #include "timer_health.h"
 #include "timer_mqtt.h"
+#if CONFIG_HEAP_TASK_TRACKING
+#include "esp_heap_task_info.h"
+#endif
+#define MQ_MARSHAL_TASK_STACK_SIZE 4096
+#define MQ_MARSHAL_TASK_PRIORITY 3
+
 static uint64_t lastHealthUs = 0;
 static marshal_recap_t pendingMqRecap = {};
 static int pendingMqMsgId = -1;
+static SemaphoreHandle_t mqTxMutex = NULL;
+static TaskHandle_t mqMarshalTaskHandle = NULL;
 
 Timerpb__TimerData *marshalRr1TimerPbTimerDataHealth();
+static void logIdleStats(void);
+static void mqMarshalTask(void *pvParameters);
+static void logHealthMemoryStats(void);
+static int getHealthIntervalMs(int tlCount);
+bool isHealthDue(int tlCount);
 const static char *TAG = "rr1_capture";
 timer_config_t timerConfig = {
   clearMs : 10 * 1000,
@@ -41,6 +58,41 @@ int nextXmitHist = 0;
 inline int dec_hist(int h) { return (h - 1) & HIST_MAX; }
 inline int inc_hist(int h) { return (h + 1) & HIST_MAX; }
 
+/*
+ * There is only one publisher: mq_marshal runs mqPubDataList(). The mutex is
+ * for publisher-vs-MQTT-event concurrency. MQTT callbacks can ack or clear the
+ * pending message while mq_marshal is recording pendingMqMsgId/pendingMqRecap,
+ * and those fields must stay matched to the nextXmitHist advancement.
+ */
+static void mqTxLock(void) {
+  if (mqTxMutex) {
+    xSemaphoreTake(mqTxMutex, portMAX_DELAY);
+  }
+}
+
+static void mqTxUnlock(void) {
+  if (mqTxMutex) {
+    xSemaphoreGive(mqTxMutex);
+  }
+}
+
+static int getHealthIntervalMs(int tlCount) {
+  return tlCount > 0
+             ? 30000
+             : 55000; // if data is waiting, bundle health opportunistically
+}
+
+static uint64_t nextHealthDueMs(int tlCount, uint64_t nowMs) {
+  if (lastHealthUs == 0) {
+    return nowMs;
+  }
+
+  uint64_t dueUs =
+      lastHealthUs + ((uint64_t)getHealthIntervalMs(tlCount) * 1000);
+  uint64_t dueMs = (dueUs / 1000) + 1;
+  return dueMs > nowMs ? dueMs : nowMs;
+}
+
 void timer_hist_init() {
   ESP_LOGI(TAG, "timer_hist_init: BEGIN");
 
@@ -50,6 +102,17 @@ void timer_hist_init() {
   ESP_LOGI(TAG, "timer_hist_init: %d :: %p ", size, hist);
   memset(hist, 0, size);
   test_ghandle();
+  mqTxMutex = xSemaphoreCreateMutex();
+  if (!mqTxMutex) {
+    ESP_LOGE(TAG, "timer_hist_init: failed to create mq tx mutex");
+  }
+  BaseType_t taskCreated =
+      xTaskCreate(&mqMarshalTask, "mq_marshal", MQ_MARSHAL_TASK_STACK_SIZE,
+                  NULL, MQ_MARSHAL_TASK_PRIORITY, &mqMarshalTaskHandle);
+  if (taskCreated != pdPASS) {
+    ESP_LOGE(TAG, "timer_hist_init: failed to create mq marshal task");
+    mqMarshalTaskHandle = NULL;
+  }
   ESP_LOGI(TAG, "timer_hist_init: END");
 }
 uint64_t msecsToTicks(uint64_t ms) { return ms * 1000; }
@@ -58,7 +121,7 @@ void potentialRollCandidate(lane_transition_t *hp) {
   if (candidateBlock.expiryTicks64 < hp->cap_value64) {
     memset(&candidateBlock, 0, sizeof(candidateBlock));
 
-    candidateBlock.birthIndex = dec_hist(nextHist);
+    candidateBlock.birthIndex = nextHist;
     candidateBlock.birthTicks64 = hp->cap_value64;
     candidateBlock.expiryTicks64 =
         candidateBlock.birthTicks64 + msecsToTicks(timerConfig.clearMs);
@@ -142,8 +205,8 @@ void th_append(esp_probe_recv_data_t *recv_dataP) {
   ESP_LOGI(TAG, "th_append gpio:%d state: %d", (int)hpNext->lane_gpio,
            (int)hpNext->lane_result_state);
 
-  nextHist = inc_hist(nextHist);
   potentialRollCandidate(hpNext);
+  nextHist = inc_hist(nextHist);
   // VERY SLOW
   // auditCandidateHist();
   candidateBlock.auditPending = true;
@@ -239,22 +302,129 @@ int getXmitHistBacklog() {
   int backlog = nextHist - nextXmitHist;
   return backlog & HIST_MAX;
 }
+
+void scheduleMqPubDataList(int delayMs) {
+  if (mqMarshalTaskHandle) {
+    xTaskNotify(mqMarshalTaskHandle, (uint32_t)delayMs, eSetValueWithOverwrite);
+  }
+}
+
+static void mqMarshalTask(void *pvParameters) {
+  const uint64_t noPublishDeadlineMs = UINT64_MAX;
+  const uint32_t creditIntervalMs = 15000;
+  const uint32_t idleCalcIntervalMs = 10000;
+  uint64_t nowMs = esp_timer_get_time() / 1000;
+  uint64_t nextCreditMs = nowMs;
+  uint64_t nextIdleCalcMs = nowMs;
+  uint64_t nextPublishHealthMs = nextHealthDueMs(getXmitHistBacklog(), nowMs);
+  uint64_t nextPublishMs = noPublishDeadlineMs;
+  bool publishCreditStarved = false;
+
+  while (1) {
+    uint64_t nextWakeMs =
+        MIN(nextCreditMs, MIN(nextIdleCalcMs, nextPublishHealthMs));
+    nextWakeMs = MIN(nextWakeMs, nextPublishMs);
+    TickType_t waitTicks =
+        pdMS_TO_TICKS(nextWakeMs > nowMs ? (uint32_t)(nextWakeMs - nowMs) : 0);
+
+    uint32_t delayMs = 0;
+    BaseType_t notified = xTaskNotifyWait(0, UINT32_MAX, &delayMs, waitTicks);
+
+    nowMs = esp_timer_get_time() / 1000;
+    if (notified == pdTRUE) {
+      uint64_t requestedPublishMs = nowMs + delayMs;
+      if (requestedPublishMs < nextPublishMs) {
+        nextPublishMs = requestedPublishMs;
+      }
+    }
+
+    if (nowMs >= nextIdleCalcMs) {
+      logIdleStats();
+      nextIdleCalcMs = nowMs + idleCalcIntervalMs;
+    }
+
+    bool shouldPublish = false;
+    if (nextPublishMs != noPublishDeadlineMs && nowMs >= nextPublishMs) {
+      shouldPublish = true;
+      nextPublishMs = noPublishDeadlineMs;
+    }
+    if (nowMs >= nextCreditMs) {
+      incMqttPublishCredits();
+      nextCreditMs = nowMs + creditIntervalMs;
+      if (publishCreditStarved) {
+        shouldPublish = true;
+      }
+    }
+    if (nowMs >= nextPublishHealthMs) {
+      int backlog = getXmitHistBacklog();
+      bool healthDue = isHealthDue(backlog);
+      shouldPublish = shouldPublish || healthDue;
+      nextPublishHealthMs = healthDue ? nowMs + getHealthIntervalMs(backlog)
+                                      : nextHealthDueMs(backlog, nowMs);
+    }
+
+    if (shouldPublish) {
+      publishCreditStarved = getMqttPublishCredits() < 1;
+      mqPubDataList();
+    }
+  }
+}
+
+static void logIdleStats(void) {
+  statsRecap_t recap = {};
+  updateCpuIdleStats(&recap);
+  ESP_LOGI(TAG, "idleCalc: cpu  percent %d idle percent %d",
+           (int)recap.cpu_used_percent, (int)recap.cpu_idle_percent);
+}
+
+static int discardInvalidXmitSlots(void) {
+  int discarded = 0;
+  int backlog = getXmitHistBacklog();
+  while (backlog > 0 && hist[nextXmitHist].cap_value64 == 0) {
+    ESP_LOGW(TAG, "discarding invalid xmit slot idx %d backlog %d",
+             nextXmitHist, backlog);
+    nextXmitHist = inc_hist(nextXmitHist);
+    discarded++;
+    backlog = getXmitHistBacklog();
+  }
+  return discarded;
+}
+
 Timerpb__TimerDataList *marshalRr1TimerPbTimerDataList(lane_transition_t *h,
                                                        marshal_recap_t *mrt);
 int mqPubDataList() {
   marshal_recap_t mrt = {};
+  mqTxLock();
+  if (pendingMqMsgId != -1) {
+    ESP_LOGI(TAG, "mqPubDataList: timer hist publish already pending");
+    mqTxUnlock();
+    return -1;
+  }
+  if (isMqttPublishPending()) {
+    ESP_LOGI(TAG, "mqPubDataList: publish already pending");
+    mqTxUnlock();
+    return -1;
+  }
   if (getMqttPublishCredits() < 1) {
     ESP_LOGW(TAG, "mqPubDataList: no publish credits");
+    mqTxUnlock();
     return -1;
   }
 
   Timerpb__TimerDataList *tdl = marshalRr1TimerPbTimerDataList(hist, &mrt);
   if (!tdl) {
     ESP_LOGI(TAG, "mqPubDataList: nothing to publish");
+    mqTxUnlock();
     return 0;
   }
   size_t packed_size = timerpb__timer_data_list__get_packed_size(tdl);
   uint8_t *buffer = malloc(packed_size);
+  if (!buffer) {
+    ESP_LOGE(TAG, "mqPubDataList: failed to allocate %zu bytes", packed_size);
+    freeRr1TimerPbTimerDataList(tdl);
+    mqTxUnlock();
+    return -1;
+  }
   timerpb__timer_data_list__pack(tdl, buffer);
 
   int rc = aba_xmit_b64_json(buffer, packed_size);
@@ -268,13 +438,16 @@ int mqPubDataList() {
     ESP_LOGI(TAG, "mqPubDataList: awaiting ack msg_id %d lane count %d", rc,
              pendingMqRecap.laneTransitionCount);
   }
+  mqTxUnlock();
   return rc;
 }
 
 void timerHistMqPubAcked(int msg_id) {
+  mqTxLock();
   if (pendingMqMsgId != msg_id) {
     ESP_LOGW(TAG, "timerHistMqPubAcked: ignoring msg_id %d, pending %d", msg_id,
              pendingMqMsgId);
+    mqTxUnlock();
     return;
   }
 
@@ -288,26 +461,65 @@ void timerHistMqPubAcked(int msg_id) {
 
   pendingMqMsgId = -1;
   memset(&pendingMqRecap, 0, sizeof(pendingMqRecap));
+  mqTxUnlock();
 }
+
+void timerHistMqPubCleared(int msg_id, const char *reason) {
+  mqTxLock();
+  if (pendingMqMsgId != msg_id) {
+    ESP_LOGW(TAG, "timerHistMqPubCleared: ignoring msg_id %d, pending %d",
+             msg_id, pendingMqMsgId);
+    mqTxUnlock();
+    return;
+  }
+
+  ESP_LOGW(TAG,
+           "timerHistMqPubCleared: clearing msg_id %d without advancing "
+           "nextXmitHist: %s",
+           msg_id, reason);
+  pendingMqMsgId = -1;
+  memset(&pendingMqRecap, 0, sizeof(pendingMqRecap));
+  mqTxUnlock();
+  scheduleMqPubDataList(1000);
+}
+
 int aba_xmit_b64_json(uint8_t *buffer, size_t packed_size) {
   unsigned char *input = buffer;
-  uint8_t *buffer64 = calloc(1, packed_size * 2);
-  size_t outlen;
+  size_t buffer64_size = 4 * ((packed_size + 2) / 3) + 1;
+  uint8_t *buffer64 = calloc(1, buffer64_size);
+  if (!buffer64) {
+    ESP_LOGE(TAG, "aba_xmit_b64_json: failed to allocate %zu bytes",
+             buffer64_size);
+    return -1;
+  }
 
-  mbedtls_base64_encode(buffer64, packed_size * 2, &outlen, input, packed_size);
+  size_t outlen = 0;
+  int enc_rc = mbedtls_base64_encode(buffer64, buffer64_size, &outlen, input,
+                                     packed_size);
+  if (enc_rc != 0) {
+    ESP_LOGE(TAG, "aba_xmit_b64_json: base64 encode failed rc=%d", enc_rc);
+    free(buffer64);
+    return -1;
+  }
+  buffer64[outlen] = 0;
   char *bj64 = aba_b64_json((char *)buffer64);
+  if (!bj64) {
+    ESP_LOGE(TAG, "aba_xmit_b64_json: failed to build json");
+    free(buffer64);
+    return -1;
+  }
 
   int rc = mq_pub64(bj64);
+  if (rc > 0) {
+    aba_b64_json_mark_sent();
+  }
   free(buffer64);
   free(bj64);
   return rc;
 }
 bool isHealthDue(int tlCount) {
   uint64_t upUs = esp_timer_get_time();
-  int healthIntervalMs =
-      tlCount > 0
-          ? 30000
-          : 55000; // if we have data to send, bundle health opportunistically
+  int healthIntervalMs = getHealthIntervalMs(tlCount);
   ESP_LOGI(TAG,
            "isHealthDue: tlCount %d upUs %" PRIu64 " lastHealthUs %" PRIu64
            " healthIntervalMs %d",
@@ -322,10 +534,19 @@ bool isHealthDue(int tlCount) {
 Timerpb__TimerDataList *marshalRr1TimerPbTimerDataList(lane_transition_t *h,
                                                        marshal_recap_t *mrt) {
 
+  discardInvalidXmitSlots();
   int tlCount = getXmitHistBacklog();
   int healthCount = isHealthDue(tlCount) ? 1 : 0;
   if (tlCount > 20) {
     tlCount = 20; // cap the backlog to avoid creating huge messages
+  }
+  for (int x = 0; x < tlCount; x++) {
+    int idx = (nextXmitHist + x) & HIST_MAX;
+    if (hist[idx].cap_value64 == 0) {
+      ESP_LOGW(TAG, "stopping xmit at invalid slot idx %d offset %d", idx, x);
+      tlCount = x;
+      break;
+    }
   }
   mrt->laneTransitionCount = tlCount;
   if (tlCount < 1 && healthCount < 1) {
@@ -350,7 +571,7 @@ Timerpb__TimerDataList *marshalRr1TimerPbTimerDataList(lane_transition_t *h,
   if (healthCount) {
     tdl->timerdata[tlCount] = marshalRr1TimerPbTimerDataHealth();
     mrt->healthMarshalledUs = esp_timer_get_time();
-    heap_caps_print_heap_info(MALLOC_CAP_8BIT);
+    logHealthMemoryStats();
   }
 
   struct timespec tv;
@@ -364,6 +585,32 @@ Timerpb__TimerDataList *marshalRr1TimerPbTimerDataList(lane_transition_t *h,
   tdl->has_prevpubackms = true;
   tdl->prevpubackms = getMqttRecentLatencyMs();
   return tdl;
+}
+
+static void logHealthMemoryStats(void) {
+  multi_heap_info_t internal_info = {};
+  heap_caps_get_info(&internal_info, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+  ESP_LOGI(TAG,
+           "internal_heap free=%zu min=%zu largest=%zu free_blocks=%zu "
+           "allocated_blocks=%zu",
+           internal_info.total_free_bytes, internal_info.minimum_free_bytes,
+           internal_info.largest_free_block, internal_info.free_blocks,
+           internal_info.allocated_blocks);
+
+  multi_heap_info_t default_info = {};
+  heap_caps_get_info(&default_info, MALLOC_CAP_DEFAULT);
+  ESP_LOGI(TAG,
+           "default_heap free=%zu min=%zu largest=%zu free_blocks=%zu "
+           "allocated_blocks=%zu",
+           default_info.total_free_bytes, default_info.minimum_free_bytes,
+           default_info.largest_free_block, default_info.free_blocks,
+           default_info.allocated_blocks);
+
+  heap_caps_print_heap_info(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+
+#if CONFIG_HEAP_TASK_TRACKING
+  heap_caps_print_all_task_stat_overview(stdout);
+#endif
 }
 
 /*

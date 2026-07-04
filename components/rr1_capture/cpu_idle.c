@@ -127,7 +127,7 @@ esp_err_t deltaTaskStats(statsSnapshot_t *start, statsSnapshot_t *end,
     return ret;
   }
 
-  printf("| Task | Run Time | Percentage\n");
+  printf("| Task | Run Time | Percentage | Stack Free Words\n");
   // Match each task in start_array to those in the end_array
   for (int i = 0; i < start->_array_size; i++) {
     int k = -1;
@@ -155,8 +155,9 @@ esp_err_t deltaTaskStats(statsSnapshot_t *start, statsSnapshot_t *end,
       uint32_t percentage_time =
           (task_elapsed_time * 100UL) /
           (total_elapsed_time * CONFIG_FREERTOS_NUMBER_OF_CORES);
-      printf("| %s | %" PRIu32 " | %" PRIu32 "%%\n",
-             start->_array[i].pcTaskName, task_elapsed_time, percentage_time);
+      printf("| %s | %" PRIu32 " | %" PRIu32 "%% | %" PRIu32 "\n",
+             start->_array[i].pcTaskName, task_elapsed_time, percentage_time,
+             end->_array[k].usStackHighWaterMark);
       if (strcmp(start->_array[i].pcTaskName, "IDLE") == 0) {
         recap->cpu_idle_percent += percentage_time;
       } else {

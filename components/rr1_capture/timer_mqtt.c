@@ -24,15 +24,20 @@
 #include "esp_system.h"
 #include "esp_timer.h"
 #include "esp_wifi.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 #include "get_mqtt_creds.h"
 #include "mqtt_client.h"
 #include "rr1_blink.h"
+#include "rr1_wifi.h"
 #include "time.h"
 #include "timer_hist.h"
 #include "timer_mqtt.h"
 static const char *TAG = "timer_mqtt";
 static char mq_topic[30] = "";
 static char mqtt_client_id[12] = "";
+static esp_mqtt_client_handle_t mqttClient = NULL;
+static TaskHandle_t mqttReconnectTaskHandle = NULL;
 #define MQ_PUBLISH_CREDITS_MAX 100
 static int mq_publish_credits = MQ_PUBLISH_CREDITS_MAX;
 const char *AWS_ROOT_CA_1 = "\
@@ -127,10 +132,65 @@ static void clear_pending_mq_msg(const char *reason) {
     return;
   }
 
-  ESP_LOGW(TAG, "Clearing pending MQTT msg id %d: %s",
-           aws_mqttHandle->pending_msg_id, reason);
+  int msg_id = aws_mqttHandle->pending_msg_id;
+  ESP_LOGW(TAG, "Clearing pending MQTT msg id %d: %s", msg_id, reason);
   aws_mqttHandle->pending_msg_id = 0;
   aws_mqttHandle->pending_msg_xmit_us = 0;
+  timerHistMqPubCleared(msg_id, reason);
+}
+
+bool isMqttPublishPending() { return aws_mqttHandle->pending_msg_id != 0; }
+
+static void scheduleMqttReconnect(void) {
+  if (mqttReconnectTaskHandle) {
+    xTaskNotifyGive(mqttReconnectTaskHandle);
+  }
+}
+
+void timerMqttWifiDisconnected(const char *reason) {
+  ESP_LOGW(TAG, "timerMqttWifiDisconnected: %s", reason);
+  aws_mqttHandle->p_client = NULL;
+  clear_pending_mq_msg(reason);
+}
+
+void timerMqttWifiIpReady(void) {
+  if (!mqttClient) {
+    ESP_LOGI(TAG, "timerMqttWifiIpReady: MQTT client not initialized yet");
+    return;
+  }
+  if (aws_mqttHandle->p_client) {
+    ESP_LOGI(TAG, "timerMqttWifiIpReady: MQTT already connected");
+    return;
+  }
+
+  ESP_LOGI(TAG,
+           "timerMqttWifiIpReady: scheduling MQTT reconnect after IP ready");
+  scheduleMqttReconnect();
+}
+
+static void mqttReconnectTask(void *pvParameters) {
+  (void)pvParameters;
+
+  while (1) {
+    ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+
+    while (mqttClient && !aws_mqttHandle->p_client && wifi_ip[0]) {
+      /*
+       * Auto reconnect is disabled so MQTT does not reconnect while Wi-Fi is
+       * down. After ESP-MQTT reports DISCONNECTED it moves into
+       * MQTT_STATE_WAIT_RECONNECT; esp_mqtt_client_reconnect() only succeeds
+       * from that state, so retry here until the client is ready or IP is lost.
+       */
+      ESP_LOGI(TAG, "mqttReconnectTask: reconnecting MQTT");
+      esp_err_t err = esp_mqtt_client_reconnect(mqttClient);
+      if (err == ESP_OK) {
+        break;
+      }
+
+      ESP_LOGW(TAG, "mqttReconnectTask: reconnect failed err=0x%x", err);
+      vTaskDelay(pdMS_TO_TICKS(5000));
+    }
+  }
 }
 
 static void mqtt_event_handler(void *handler_args, esp_event_base_t base,
@@ -175,6 +235,9 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base,
 
     aws_mqttHandle->p_client = NULL;
     clear_pending_mq_msg("disconnected");
+    if (wifi_ip[0]) {
+      scheduleMqttReconnect();
+    }
     break;
 
   case MQTT_EVENT_SUBSCRIBED:
@@ -213,6 +276,9 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base,
   case MQTT_EVENT_ERROR:
     ESP_LOGI(TAG, "MQTT_EVENT_ERROR");
     clear_pending_mq_msg("mqtt error");
+    if (wifi_ip[0]) {
+      scheduleMqttReconnect();
+    }
     if (event->error_handle->error_type == MQTT_ERROR_TYPE_TCP_TRANSPORT) {
       log_error_if_nonzero("reported from esp-tls",
                            event->error_handle->esp_tls_last_esp_err);
@@ -292,6 +358,7 @@ void mqtt_app_start(void) {
       .network =
           {
               .timeout_ms = 20000,
+              .disable_auto_reconnect = true,
           },
       .task =
           {
@@ -332,6 +399,14 @@ void mqtt_app_start(void) {
 #endif /* CONFIG_BROKER_URL_FROM_STDIN */
 
   esp_mqtt_client_handle_t client = esp_mqtt_client_init(&mqtt_cfg);
+  mqttClient = client;
+  BaseType_t reconnectTaskCreated =
+      xTaskCreate(&mqttReconnectTask, "mqtt_reconnect", 4096, NULL, 4,
+                  &mqttReconnectTaskHandle);
+  if (reconnectTaskCreated != pdPASS) {
+    ESP_LOGE(TAG, "failed to create mqtt reconnect task");
+    mqttReconnectTaskHandle = NULL;
+  }
   /* The last argument may be used to pass data to the event handler, in this
    * example mqtt_event_handler */
   esp_mqtt_client_register_event(client, ESP_EVENT_ANY_ID, mqtt_event_handler,

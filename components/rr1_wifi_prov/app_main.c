@@ -33,6 +33,7 @@
 #include "qrcode.h"
 #include "rr1_blink.h"
 #include "rr1_wifi.h"
+#include "timer_mqtt.h"
 #include <button_gpio.h>
 #include <iot_button.h>
 
@@ -40,6 +41,24 @@
 
 static const char *TAG = "wifi_prov";
 char wifi_ip[20] = {0};
+
+static void apply_wifi_link_settings(void) {
+  /*
+   * ESP32-C5 defaults can negotiate 802.11ax/HE. The test fixture has shown
+   * missing ACK disconnects on that link, so cap STA mode at 11n/11ac. With
+   * WIFI_BAND_MODE_AUTO, IDF requires esp_wifi_set_protocols() instead of the
+   * older esp_wifi_set_protocol() API.
+   */
+  wifi_protocols_t protocols = {
+      .ghz_2g = WIFI_PROTOCOL_11N,
+      .ghz_5g = WIFI_PROTOCOL_11AC,
+  };
+  ESP_ERROR_CHECK(esp_wifi_set_ps(WIFI_PS_NONE));
+  ESP_ERROR_CHECK(esp_wifi_set_protocols(WIFI_IF_STA, &protocols));
+  ESP_LOGI(
+      TAG,
+      "Wi-Fi STA link settings: power_save=none protocol=2g<=11n 5g<=11ac");
+}
 
 #if CONFIG_EXAMPLE_PROV_SECURITY_VERSION_2
 #if CONFIG_EXAMPLE_PROV_SEC2_DEV_MODE
@@ -178,11 +197,23 @@ static void event_handler(void *arg, esp_event_base_t event_base,
   } else if (event_base == WIFI_EVENT) {
     switch (event_id) {
     case WIFI_EVENT_STA_START:
+      apply_wifi_link_settings();
       esp_wifi_connect();
       break;
     case WIFI_EVENT_STA_DISCONNECTED:
       set_error_priority(ERROR_PRI_WIFI_CONNECTION, true);
-      ESP_LOGI(TAG, "Disconnected. Connecting to the AP again...");
+      wifi_event_sta_disconnected_t *event =
+          (wifi_event_sta_disconnected_t *)event_data;
+      ESP_LOGI(TAG,
+               "Disconnected from AP. reason=%u rssi=%d bssid="
+               "%02x:%02x:%02x:%02x:%02x:%02x ssid=%.*s. Connecting to the "
+               "AP again...",
+               event->reason, event->rssi, event->bssid[0], event->bssid[1],
+               event->bssid[2], event->bssid[3], event->bssid[4],
+               event->bssid[5], event->ssid_len, (char *)event->ssid);
+      wifi_ip[0] = 0;
+      timerMqttWifiDisconnected("wifi disconnected");
+      apply_wifi_link_settings();
       esp_wifi_connect();
       break;
 #ifdef CONFIG_EXAMPLE_PROV_TRANSPORT_SOFTAP
@@ -202,6 +233,7 @@ static void event_handler(void *arg, esp_event_base_t event_base,
     ESP_LOGI(TAG, "Connected with IP Address:" IPSTR,
              IP2STR(&event->ip_info.ip));
     snprintf(wifi_ip, 20, IPSTR, IP2STR(&event->ip_info.ip));
+    timerMqttWifiIpReady();
     /* Signal main application to continue execution */
     xEventGroupSetBits(wifi_event_group, WIFI_CONNECTED_EVENT);
 #ifdef CONFIG_EXAMPLE_PROV_TRANSPORT_BLE
@@ -239,6 +271,7 @@ static void event_handler(void *arg, esp_event_base_t event_base,
 static void wifi_init_sta(void) {
   /* Start Wi-Fi in station mode */
   ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
+  apply_wifi_link_settings();
   ESP_ERROR_CHECK(esp_wifi_start());
 }
 
