@@ -489,8 +489,13 @@ int mq_pub64(char *msg) {
 
   if (aws_mqttHandle->p_client && aws_mqttHandle->pending_msg_id == 0) {
     ESP_LOGI(TAG, "mq_pub64 sending publish pending msg  %s ", msg);
+    /*
+     * Keep QoS 1 for broker PUBACKs, but do not store messages in ESP-MQTT's
+     * outbox across reconnects. timer_hist owns resend by holding nextXmitHist
+     * until timerHistMqPubAcked() observes the PUBACK.
+     */
     msg_id = esp_mqtt_client_enqueue(aws_mqttHandle->p_client, mq_topic, msg, 0,
-                                     1, 0, true);
+                                     1, 0, false);
   } else {
     ESP_LOGI(TAG, "mq_pub64 NOT sent publish pending msg id %d ",
              aws_mqttHandle->pending_msg_id);
