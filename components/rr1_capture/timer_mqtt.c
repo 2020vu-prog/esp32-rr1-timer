@@ -39,6 +39,7 @@ static char mqtt_client_id[12] = "";
 static esp_mqtt_client_handle_t mqttClient = NULL;
 static TaskHandle_t mqttReconnectTaskHandle = NULL;
 #define MQ_PUBLISH_CREDITS_MAX 100
+#define MQTT_RECONNECT_BACKOFF_MS 5000
 static int mq_publish_credits = MQ_PUBLISH_CREDITS_MAX;
 const char *AWS_ROOT_CA_1 = "\
 -----BEGIN CERTIFICATE-----\n\
@@ -178,17 +179,18 @@ static void mqttReconnectTask(void *pvParameters) {
       /*
        * Auto reconnect is disabled so MQTT does not reconnect while Wi-Fi is
        * down. After ESP-MQTT reports DISCONNECTED it moves into
-       * MQTT_STATE_WAIT_RECONNECT; esp_mqtt_client_reconnect() only succeeds
-       * from that state, so retry here until the client is ready or IP is lost.
+       * MQTT_STATE_WAIT_RECONNECT; esp_mqtt_client_reconnect() returning
+       * ESP_OK only means the request was accepted. DNS/TLS/MQTT can still
+       * fail asynchronously and emit another DISCONNECTED event, so every
+       * request gets the same backoff to keep reconnect notifications from
+       * spinning this task.
        */
       ESP_LOGI(TAG, "mqttReconnectTask: reconnecting MQTT");
       esp_err_t err = esp_mqtt_client_reconnect(mqttClient);
-      if (err == ESP_OK) {
-        break;
+      if (err != ESP_OK) {
+        ESP_LOGW(TAG, "mqttReconnectTask: reconnect failed err=0x%x", err);
       }
-
-      ESP_LOGW(TAG, "mqttReconnectTask: reconnect failed err=0x%x", err);
-      vTaskDelay(pdMS_TO_TICKS(5000));
+      vTaskDelay(pdMS_TO_TICKS(MQTT_RECONNECT_BACKOFF_MS));
     }
   }
 }
