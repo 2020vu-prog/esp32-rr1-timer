@@ -314,49 +314,51 @@ Timerpb__TimerDataList *marshalRr1TimerPbTimerDataList(lane_transition_t *h,
                                                        marshal_recap_t *mrt);
 int mqPubDataList() {
   marshal_recap_t mrt = {};
+  Timerpb__TimerDataList *tdl = NULL;
+  uint8_t *buffer = NULL;
+  int rc = -1;
+
   mqTxLock();
   if (pendingMqMsgId != -1) {
     ESP_LOGI(TAG, "mqPubDataList: timer hist publish already pending");
-    mqTxUnlock();
-    return -1;
+    goto cleanup;
   }
   if (isMqttPublishPending()) {
     ESP_LOGI(TAG, "mqPubDataList: publish already pending");
-    mqTxUnlock();
-    return -1;
+    goto cleanup;
   }
   if (getMqttPublishCredits() < 1) {
     ESP_LOGW(TAG, "mqPubDataList: no publish credits");
-    mqTxUnlock();
-    return -1;
+    goto cleanup;
   }
 
-  Timerpb__TimerDataList *tdl = marshalRr1TimerPbTimerDataList(hist, &mrt);
+  tdl = marshalRr1TimerPbTimerDataList(hist, &mrt);
   if (!tdl) {
     ESP_LOGI(TAG, "mqPubDataList: nothing to publish");
-    mqTxUnlock();
-    return 0;
+    rc = 0;
+    goto cleanup;
   }
   size_t packed_size = timerpb__timer_data_list__get_packed_size(tdl);
-  uint8_t *buffer = malloc(packed_size);
+  buffer = malloc(packed_size);
   if (!buffer) {
     ESP_LOGE(TAG, "mqPubDataList: failed to allocate %zu bytes", packed_size);
-    freeRr1TimerPbTimerDataList(tdl);
-    mqTxUnlock();
-    return -1;
+    goto cleanup;
   }
   timerpb__timer_data_list__pack(tdl, buffer);
 
-  int rc = aba_xmit_b64_json(buffer, packed_size);
-
-  free(buffer);
-  freeRr1TimerPbTimerDataList(tdl);
+  rc = aba_xmit_b64_json(buffer, packed_size);
 
   if (rc > 0) {
     pendingMqMsgId = rc;
     pendingMqRecap = mrt;
     ESP_LOGI(TAG, "mqPubDataList: awaiting ack msg_id %d lane count %d", rc,
              pendingMqRecap.laneTransitionCount);
+  }
+
+cleanup:
+  free(buffer);
+  if (tdl) {
+    freeRr1TimerPbTimerDataList(tdl);
   }
   mqTxUnlock();
   return rc;
