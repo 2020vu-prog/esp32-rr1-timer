@@ -12,6 +12,7 @@
 #include "timer_blink.h"
 #include "timer_capture.h"
 #include "timer_hist.h"
+#include "timer_marshal.h"
 #include "timer_mqtt.h"
 
 #include <math.h>

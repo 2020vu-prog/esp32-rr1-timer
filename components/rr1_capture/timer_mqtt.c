@@ -32,6 +32,7 @@
 #include "rr1_wifi.h"
 #include "time.h"
 #include "timer_hist.h"
+#include "timer_marshal.h"
 #include "timer_mqtt.h"
 static const char *TAG = "timer_mqtt";
 static char mq_topic[30] = "";

@@ -16,6 +16,7 @@
 #include "rr1_wifi.h"
 #include "timer.pb-c.h"
 #include "timer_health.h"
+#include "timer_marshal.h"
 #include "timer_mqtt.h"
 #if CONFIG_HEAP_TASK_TRACKING
 #include "esp_heap_task_info.h"

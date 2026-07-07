@@ -1,3 +1,4 @@
+#include "timer_marshal.h"
 #include "cpu_idle.h"
 #include "esp_log.h"
 #include "esp_timer.h"
