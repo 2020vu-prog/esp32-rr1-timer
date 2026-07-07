@@ -13,7 +13,6 @@
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
-#include "freertos/task.h"
 #include "rr1_wifi.h"
 #include "timer.pb-c.h"
 #include "timer_health.h"
@@ -21,24 +20,19 @@
 #if CONFIG_HEAP_TASK_TRACKING
 #include "esp_heap_task_info.h"
 #endif
-// Enable to recover the transmit cursor past zeroed history slots. Keep it off
-// while reproducing cursor/slot holes so the first invalid slot remains
-// visible. #define DISCARD_INVALID_XMIT_SLOTS
-#define MQ_MARSHAL_TASK_STACK_SIZE 4096
-#define MQ_MARSHAL_TASK_PRIORITY 3
+/*
+ * Enable DISCARD_INVALID_XMIT_SLOTS to recover the transmit cursor past zeroed
+ * history slots. Keep it off while reproducing cursor/slot holes so the first
+ * invalid slot remains visible.
+ */
 
 static uint64_t lastHealthUs = 0;
 static marshal_recap_t pendingMqRecap = {};
 static int pendingMqMsgId = -1;
 static SemaphoreHandle_t mqTxMutex = NULL;
-static TaskHandle_t mqMarshalTaskHandle = NULL;
 
 Timerpb__TimerData *marshalRr1TimerPbTimerDataHealth();
-static void logIdleStats(void);
-static void mqMarshalTask(void *pvParameters);
 static void logHealthMemoryStats(void);
-static int getHealthIntervalMs(int tlCount);
-bool isHealthDue(int tlCount);
 const static char *TAG = "rr1_capture";
 timer_config_t timerConfig = {
   clearMs : 10 * 1000,
@@ -79,19 +73,19 @@ static void mqTxUnlock(void) {
   }
 }
 
-static int getHealthIntervalMs(int tlCount) {
+int timerHistGetHealthIntervalMs(int tlCount) {
   return tlCount > 0
              ? 30000
              : 55000; // if data is waiting, bundle health opportunistically
 }
 
-static uint64_t nextHealthDueMs(int tlCount, uint64_t nowMs) {
+uint64_t timerHistNextHealthDueMs(int tlCount, uint64_t nowMs) {
   if (lastHealthUs == 0) {
     return nowMs;
   }
 
   uint64_t dueUs =
-      lastHealthUs + ((uint64_t)getHealthIntervalMs(tlCount) * 1000);
+      lastHealthUs + ((uint64_t)timerHistGetHealthIntervalMs(tlCount) * 1000);
   uint64_t dueMs = (dueUs / 1000) + 1;
   return MAX(dueMs, nowMs);
 }
@@ -109,13 +103,7 @@ void timer_hist_init() {
   if (!mqTxMutex) {
     ESP_LOGE(TAG, "timer_hist_init: failed to create mq tx mutex");
   }
-  BaseType_t taskCreated =
-      xTaskCreate(&mqMarshalTask, "mq_marshal", MQ_MARSHAL_TASK_STACK_SIZE,
-                  NULL, MQ_MARSHAL_TASK_PRIORITY, &mqMarshalTaskHandle);
-  if (taskCreated != pdPASS) {
-    ESP_LOGE(TAG, "timer_hist_init: failed to create mq marshal task");
-    mqMarshalTaskHandle = NULL;
-  }
+  timerMarshalInit();
   ESP_LOGI(TAG, "timer_hist_init: END");
 }
 uint64_t msecsToTicks(uint64_t ms) { return ms * 1000; }
@@ -306,80 +294,6 @@ int getXmitHistBacklog() {
   return backlog & HIST_MAX;
 }
 
-void scheduleMqPubDataList(int delayMs) {
-  if (mqMarshalTaskHandle) {
-    xTaskNotify(mqMarshalTaskHandle, (uint32_t)delayMs, eSetValueWithOverwrite);
-  }
-}
-
-static void mqMarshalTask(void *pvParameters) {
-  const uint64_t noPublishDeadlineMs = UINT64_MAX;
-  const uint32_t creditIntervalMs = 15000;
-  const uint32_t idleCalcIntervalMs = 10000;
-  uint64_t nowMs = esp_timer_get_time() / 1000;
-  uint64_t nextCreditMs = nowMs;
-  uint64_t nextIdleCalcMs = nowMs;
-  uint64_t nextPublishHealthMs = nextHealthDueMs(getXmitHistBacklog(), nowMs);
-  uint64_t nextPublishMs = noPublishDeadlineMs;
-  bool publishCreditStarved = false;
-
-  while (1) {
-    uint64_t nextWakeMs =
-        MIN(nextCreditMs, MIN(nextIdleCalcMs, nextPublishHealthMs));
-    nextWakeMs = MIN(nextWakeMs, nextPublishMs);
-    TickType_t waitTicks =
-        pdMS_TO_TICKS(nextWakeMs > nowMs ? (uint32_t)(nextWakeMs - nowMs) : 0);
-
-    uint32_t delayMs = 0;
-    BaseType_t notified = xTaskNotifyWait(0, UINT32_MAX, &delayMs, waitTicks);
-
-    nowMs = esp_timer_get_time() / 1000;
-    if (notified == pdTRUE) {
-      uint64_t requestedPublishMs = nowMs + delayMs;
-      if (requestedPublishMs < nextPublishMs) {
-        nextPublishMs = requestedPublishMs;
-      }
-    }
-
-    if (nowMs >= nextIdleCalcMs) {
-      logIdleStats();
-      nextIdleCalcMs = nowMs + idleCalcIntervalMs;
-    }
-
-    bool shouldPublish = false;
-    if (nextPublishMs != noPublishDeadlineMs && nowMs >= nextPublishMs) {
-      shouldPublish = true;
-      nextPublishMs = noPublishDeadlineMs;
-    }
-    if (nowMs >= nextCreditMs) {
-      incMqttPublishCredits();
-      nextCreditMs = nowMs + creditIntervalMs;
-      if (publishCreditStarved) {
-        shouldPublish = true;
-      }
-    }
-    if (nowMs >= nextPublishHealthMs) {
-      int backlog = getXmitHistBacklog();
-      bool healthDue = isHealthDue(backlog);
-      shouldPublish = shouldPublish || healthDue;
-      nextPublishHealthMs = healthDue ? nowMs + getHealthIntervalMs(backlog)
-                                      : nextHealthDueMs(backlog, nowMs);
-    }
-
-    if (shouldPublish) {
-      publishCreditStarved = getMqttPublishCredits() < 1;
-      mqPubDataList();
-    }
-  }
-}
-
-static void logIdleStats(void) {
-  statsRecap_t recap = {};
-  updateCpuIdleStats(&recap);
-  ESP_LOGI(TAG, "idleCalc: cpu  percent %d idle percent %d",
-           (int)recap.cpu_used_percent, (int)recap.cpu_idle_percent);
-}
-
 #ifdef DISCARD_INVALID_XMIT_SLOTS
 static int discardInvalidXmitSlots(void) {
   int discarded = 0;
@@ -524,7 +438,7 @@ int aba_xmit_b64_json(uint8_t *buffer, size_t packed_size) {
 }
 bool isHealthDue(int tlCount) {
   uint64_t upUs = esp_timer_get_time();
-  int healthIntervalMs = getHealthIntervalMs(tlCount);
+  int healthIntervalMs = timerHistGetHealthIntervalMs(tlCount);
   ESP_LOGI(TAG,
            "isHealthDue: tlCount %d upUs %" PRIu64 " lastHealthUs %" PRIu64
            " healthIntervalMs %d",

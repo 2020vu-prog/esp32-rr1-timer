@@ -67,8 +67,13 @@ lane_state_enum getResultState(mcpwm_capture_edge_t cap_edge);
 #define FE_NONE '0'
 
 int mqPubDataList();
+int getXmitHistBacklog();
 void timerHistMqPubAcked(int msg_id);
 void timerHistMqPubCleared(int msg_id, const char *reason);
 void scheduleMqPubDataList(int delayMs);
+void timerMarshalInit(void);
+int timerHistGetHealthIntervalMs(int tlCount);
+uint64_t timerHistNextHealthDueMs(int tlCount, uint64_t nowMs);
+bool isHealthDue(int tlCount);
 
 int aba_xmit_b64_json(uint8_t *buffer, size_t packed_size);
