@@ -2,11 +2,13 @@
 #include "esp_http_client.h"
 
 #include "esp_log.h"
+#include "esp_timer.h"
 #include "get_mqtt_creds.h"
 #include "rr1_wifi.h"
 #include "timer_blink.h"
 #include "timer_mqtt.h"
 #include <cJSON.h>
+#include <inttypes.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -157,8 +159,17 @@ void https_request_creds(void) {
 
   set_error_priority(ERROR_PRI_CREDENTIALS, true);
 
+  int64_t start_us = esp_timer_get_time();
   https_request_discover(host_name);
+  int64_t discover_done_us = esp_timer_get_time();
   https_request_auth(host_name);
+  int64_t auth_done_us = esp_timer_get_time();
+  ESP_LOGI(TAG,
+           "https_request_creds latency discover=%" PRId64 " ms auth=%" PRId64
+           " ms total=%" PRId64 " ms",
+           (discover_done_us - start_us) / 1000,
+           (auth_done_us - discover_done_us) / 1000,
+           (auth_done_us - start_us) / 1000);
   if (creds.mqtt_host && creds.mqtt_cert && creds.mqtt_key) {
     set_error_priority(ERROR_PRI_CREDENTIALS, false);
   }
@@ -209,17 +220,22 @@ void https_request_auth(char *host_name) {
   esp_http_client_set_post_field(client, post_data, strlen(post_data));
 
   // 4. Perform Request
+  int64_t perform_start_us = esp_timer_get_time();
   esp_err_t err = esp_http_client_perform(client);
+  int64_t perform_ms = (esp_timer_get_time() - perform_start_us) / 1000;
   if (err == ESP_OK) {
-    ESP_LOGI(TAG, "HTTP POST Status = %d, content_length = %lld",
+    ESP_LOGI(TAG,
+             "HTTP POST Status = %d, content_length = %lld, latency=%" PRId64
+             " ms",
              esp_http_client_get_status_code(client),
-             esp_http_client_get_content_length(client));
+             esp_http_client_get_content_length(client), perform_ms);
     ESP_LOGI(TAG, "POST Received datalen: %d", strlen(buffer));
     ESP_LOGI(TAG, "POST Received data: %s", buffer);
 
     parse_authApiKey(buffer);
   } else {
-    ESP_LOGE(TAG, "HTTP POST request failed: %s", esp_err_to_name(err));
+    ESP_LOGE(TAG, "HTTP POST request failed after %" PRId64 " ms: %s",
+             perform_ms, esp_err_to_name(err));
   }
 
   // 5. Cleanup
@@ -258,13 +274,16 @@ void https_request_discover(char *host_name) {
   esp_http_client_handle_t client = esp_http_client_init(&config);
   esp_http_client_set_header(client, "x-rr1-timer", host_name);
   esp_http_client_set_method(client, HTTP_METHOD_GET);
+  int64_t perform_start_us = esp_timer_get_time();
   esp_err_t err = esp_http_client_perform(client);
+  int64_t perform_ms = (esp_timer_get_time() - perform_start_us) / 1000;
 
   if (err == ESP_OK) {
     int clen = esp_http_client_get_content_length(client);
 
-    ESP_LOGI(TAG, "HTTPS Status = %d, content_length = %d\n",
-             esp_http_client_get_status_code(client), clen);
+    ESP_LOGI(TAG,
+             "HTTPS Status = %d, content_length = %d, latency=%" PRId64 " ms\n",
+             esp_http_client_get_status_code(client), clen, perform_ms);
     if (buffer) {
       ESP_LOGI(TAG, "Received data: %s", buffer);
       parse_discover(buffer);
@@ -274,7 +293,8 @@ void https_request_discover(char *host_name) {
   }
 
   else {
-    ESP_LOGE(TAG, "Error perform HTTPS request %s\n", esp_err_to_name(err));
+    ESP_LOGE(TAG, "Error perform HTTPS request after %" PRId64 " ms: %s\n",
+             perform_ms, esp_err_to_name(err));
   }
   esp_http_client_cleanup(client);
 

@@ -21,6 +21,9 @@
 #if CONFIG_HEAP_TASK_TRACKING
 #include "esp_heap_task_info.h"
 #endif
+// Enable to recover the transmit cursor past zeroed history slots. Keep it off
+// while reproducing cursor/slot holes so the first invalid slot remains
+// visible. #define DISCARD_INVALID_XMIT_SLOTS
 #define MQ_MARSHAL_TASK_STACK_SIZE 4096
 #define MQ_MARSHAL_TASK_PRIORITY 3
 
@@ -377,6 +380,7 @@ static void logIdleStats(void) {
            (int)recap.cpu_used_percent, (int)recap.cpu_idle_percent);
 }
 
+#ifdef DISCARD_INVALID_XMIT_SLOTS
 static int discardInvalidXmitSlots(void) {
   int discarded = 0;
   int backlog = getXmitHistBacklog();
@@ -389,6 +393,7 @@ static int discardInvalidXmitSlots(void) {
   }
   return discarded;
 }
+#endif
 
 Timerpb__TimerDataList *marshalRr1TimerPbTimerDataList(lane_transition_t *h,
                                                        marshal_recap_t *mrt);
@@ -534,7 +539,9 @@ bool isHealthDue(int tlCount) {
 Timerpb__TimerDataList *marshalRr1TimerPbTimerDataList(lane_transition_t *h,
                                                        marshal_recap_t *mrt) {
 
+#ifdef DISCARD_INVALID_XMIT_SLOTS
   discardInvalidXmitSlots();
+#endif
   int tlCount = getXmitHistBacklog();
   int healthCount = isHealthDue(tlCount) ? 1 : 0;
   if (tlCount > 20) {
