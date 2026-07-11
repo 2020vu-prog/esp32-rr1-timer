@@ -58,7 +58,7 @@ candidate_block_t candidateBlock = {
 };
 lane_transition_t *hist;
 lane_transition_t recentState[2] = {};
-int nextHist = 0;
+int nextCaptureHist = 0;
 // int recentHist = 0;
 int nextXmitHist = 0;
 
@@ -66,9 +66,10 @@ inline int dec_hist(int h) { return (h - 1) & HIST_MAX; }
 inline int inc_hist(int h) { return (h + 1) & HIST_MAX; }
 
 /*
- * There is only one publisher: mq_marshal runs mqPubDataList(). The mutex is
- * for publisher-vs-MQTT-event concurrency. MQTT callbacks can ack while
- * mq_marshal is reading or advancing nextXmitHist.
+ * There is only one publisher: mq_marshal runs mqPubDataList() and stands down
+ * while MQTT has an in-flight publish. The mutex serializes the handoff after
+ * enqueue succeeds: a fast MQTT ack can arrive before mqPubDataList() has
+ * finished cleanup and returned.
  */
 static void mqTxLock(void) {
   if (mqTxMutex) {
@@ -121,7 +122,7 @@ void potentialRollCandidate(lane_transition_t *hp) {
   if (candidateBlock.expiryTicks64 < hp->cap_value64) {
     memset(&candidateBlock, 0, sizeof(candidateBlock));
 
-    candidateBlock.birthIndex = nextHist;
+    candidateBlock.birthIndex = nextCaptureHist;
     candidateBlock.birthTicks64 = hp->cap_value64;
     candidateBlock.expiryTicks64 =
         candidateBlock.birthTicks64 + msecsToTicks(timerConfig.clearMs);
@@ -178,7 +179,7 @@ void auditCandidateHist() {
   lane_finish_t l12[2] = {};
   //    lane_finish_t l2 = {};
 
-  for (int x = dec_hist(nextHist);
+  for (int x = dec_hist(nextCaptureHist);
        hist[x].cap_value64 >= candidateBlock.birthTicks64; x = dec_hist(x)) {
     ESP_LOGI(TAG, "auditCandidateHist %d %d", x, HIST_MAX);
     lane_transition_t *hp = &hist[x];
@@ -195,7 +196,7 @@ void th_append(esp_probe_recv_data_t *recv_dataP) {
     ESP_LOGI(TAG, "th_append: SKIPPED no mem");
     return;
   }
-  lane_transition_t *hpNext = &hist[nextHist];
+  lane_transition_t *hpNext = &hist[nextCaptureHist];
 
   hpNext->gps_micros = 0; //  defer until candidate block is assigned
   hpNext->lane_result_state = getResultState(recv_dataP->cap_edge);
@@ -206,7 +207,7 @@ void th_append(esp_probe_recv_data_t *recv_dataP) {
            (int)hpNext->lane_result_state);
 
   potentialRollCandidate(hpNext);
-  nextHist = inc_hist(nextHist);
+  nextCaptureHist = inc_hist(nextCaptureHist);
   // VERY SLOW
   // auditCandidateHist();
   candidateBlock.auditPending = true;
@@ -299,7 +300,7 @@ void freeRr1TimerPbTimerDataList(Timerpb__TimerDataList *tdl) {
 }
 
 int getXmitHistBacklog() {
-  int backlog = nextHist - nextXmitHist;
+  int backlog = nextCaptureHist - nextXmitHist;
   return backlog & HIST_MAX;
 }
 

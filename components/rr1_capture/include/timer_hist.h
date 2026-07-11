@@ -23,7 +23,7 @@ typedef struct {
 void timer_hist_init();
 void th_append(esp_probe_recv_data_t *recv_dataP);
 extern lane_transition_t *hist;
-extern int nextHist;
+extern int nextCaptureHist;
 #define HIST_MAX 0x7fff
 // #define HIST_MAX 0x000f
 #define MEG (1000 * 1000)

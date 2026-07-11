@@ -4,6 +4,8 @@
 
 #include "esp_log.h"
 #include "esp_timer.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 #include "get_mqtt_creds.h"
 #include "rr1_wifi.h"
 #include "timer_blink.h"
@@ -14,6 +16,7 @@
 #include <string.h>
 
 #define BUFLEN 10000
+#define CREDENTIAL_RETRY_DELAY_MS 5000
 const static char *TAG = "get_mqtt_creds";
 typedef struct _rr1_creds {
   char *authUrl;
@@ -29,6 +32,10 @@ _rr1_creds creds = {
 };
 void https_request_auth(char *host_name);
 void https_request_discover(char *host_name);
+static bool have_mqtt_creds(void) {
+  return creds.mqtt_host && creds.mqtt_cert && creds.mqtt_key;
+}
+
 void free_creds() {
   if (creds.authUrl) {
     free(creds.authUrl);
@@ -160,22 +167,40 @@ void https_request_creds(void) {
 
   set_error_priority(ERROR_PRI_CREDENTIALS, true);
 
-  int64_t start_us = esp_timer_get_time();
-  https_request_discover(host_name);
-  int64_t discover_done_us = esp_timer_get_time();
-  https_request_auth(host_name);
-  int64_t auth_done_us = esp_timer_get_time();
-  ESP_LOGI(TAG,
-           "https_request_creds latency discover=%" PRId64 " ms auth=%" PRId64
-           " ms total=%" PRId64 " ms",
-           (discover_done_us - start_us) / 1000,
-           (auth_done_us - discover_done_us) / 1000,
-           (auth_done_us - start_us) / 1000);
-  if (creds.mqtt_host && creds.mqtt_cert && creds.mqtt_key) {
-    set_error_priority(ERROR_PRI_CREDENTIALS, false);
+  int attempt = 1;
+  while (true) {
+    free_creds();
+    int64_t start_us = esp_timer_get_time();
+    https_request_discover(host_name);
+    int64_t discover_done_us = esp_timer_get_time();
+    if (creds.authUrl) {
+      https_request_auth(host_name);
+    } else {
+      ESP_LOGW(TAG, "https_request_creds: discover did not return authUrl");
+    }
+    int64_t auth_done_us = esp_timer_get_time();
+    ESP_LOGI(TAG,
+             "https_request_creds latency attempt=%d discover=%" PRId64
+             " ms auth=%" PRId64 " ms total=%" PRId64 " ms",
+             attempt, (discover_done_us - start_us) / 1000,
+             (auth_done_us - discover_done_us) / 1000,
+             (auth_done_us - start_us) / 1000);
+    if (have_mqtt_creds()) {
+      set_error_priority(ERROR_PRI_CREDENTIALS, false);
+      return;
+    }
+
+    ESP_LOGW(TAG, "https_request_creds: missing credentials after attempt %d",
+             attempt);
+    attempt++;
+    vTaskDelay(pdMS_TO_TICKS(CREDENTIAL_RETRY_DELAY_MS));
   }
 }
 void https_request_auth(char *host_name) {
+  if (!creds.authUrl) {
+    ESP_LOGE(TAG, "https_request_auth: authUrl is not set");
+    return;
+  }
 
   char *buffer = malloc(BUFLEN + 1);
   if (buffer == NULL) {
