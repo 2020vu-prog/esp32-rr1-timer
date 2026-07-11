@@ -1,4 +1,5 @@
 #include "esp_crt_bundle.h"
+#include "esp_heap_caps.h"
 #include "esp_http_client.h"
 
 #include "esp_log.h"
@@ -47,18 +48,18 @@ void free_creds() {
     creds.mqtt_key = NULL;
   }
 }
-void malloc_and_strcpy(char **dest, const char *src) {
+void malloc_and_strcpy_psram(char **dest, const char *src) {
   if (src == NULL) {
     free(*dest);
     *dest = NULL;
     return;
   }
   size_t len = strlen(src) + 1;
-  *dest = malloc(len);
+  *dest = heap_caps_malloc(len, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
   if (*dest != NULL) {
     strncpy(*dest, src, len);
   } else {
-    ESP_LOGE(TAG, "Failed to allocate memory for string copy");
+    ESP_LOGE(TAG, "Failed to allocate %zu PSRAM bytes for string copy", len);
   }
 }
 void copyJsonString(const cJSON *jsonObj, char **dest, const char *key) {
@@ -69,7 +70,7 @@ void copyJsonString(const cJSON *jsonObj, char **dest, const char *key) {
   if (cJSON_IsString(jsonMember) && (jsonMember->valuestring != NULL)) {
     ESP_LOGI(TAG, "Checking [%s] jsonStr \"%s\"\n", key,
              jsonMember->valuestring);
-    malloc_and_strcpy(dest, jsonMember->valuestring);
+    malloc_and_strcpy_psram(dest, jsonMember->valuestring);
   } else {
     ESP_LOGW(TAG, "Key [%s] not found or not a string in JSON\n", key);
   }

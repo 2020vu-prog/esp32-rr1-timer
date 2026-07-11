@@ -68,8 +68,16 @@ typedef struct _rr1MqHandle {
   esp_mqtt_client_handle_t p_client;
   int connCount;
   int disconnCount;
-  int pending_msg_id;
-  int64_t pending_msg_xmit_us;
+  /*
+   * Per-backend in-flight state. Each MQTT backend handle tracks the publish
+   * currently waiting for ESP-MQTT to report MQTT_EVENT_PUBLISHED.
+   */
+  int inFlightMsgId;
+  int64_t inFlightXmitUs;
+  struct {
+    int laneTransitionCount;
+    uint64_t healthMarshalledUs;
+  } inFlightRecap;
   int32_t recent_msg_latency_ms;
   int32_t max_msg_latency_ms;
   char *tag;
@@ -77,8 +85,9 @@ typedef struct _rr1MqHandle {
 static _rr1MqHandle _aws_mqttHandle = {.p_client = NULL,
                                        .connCount = 0,
                                        .disconnCount = 0,
-                                       .pending_msg_id = 0,
-                                       .pending_msg_xmit_us = 0,
+                                       .inFlightMsgId = 0,
+                                       .inFlightXmitUs = 0,
+                                       .inFlightRecap = {},
                                        .tag = "rr1_aws"};
 static rr1MqHandle aws_mqttHandle = &_aws_mqttHandle;
 void get_device_hostname(char *host_name, size_t max) {
@@ -129,19 +138,61 @@ static void log_error_if_nonzero(const char *message, int error_code) {
 static int pubAckPending = 0;
 #define MQ_PENDING_ACK_TIMEOUT_US (30 * 1000 * 1000)
 
+static void clear_in_flight_mq_msg(void) {
+  aws_mqttHandle->inFlightMsgId = 0;
+  aws_mqttHandle->inFlightXmitUs = 0;
+  memset(&aws_mqttHandle->inFlightRecap, 0,
+         sizeof(aws_mqttHandle->inFlightRecap));
+}
+
 static void clear_pending_mq_msg(const char *reason) {
-  if (aws_mqttHandle->pending_msg_id == 0) {
+  if (aws_mqttHandle->inFlightMsgId == 0) {
     return;
   }
 
-  int msg_id = aws_mqttHandle->pending_msg_id;
+  int msg_id = aws_mqttHandle->inFlightMsgId;
   ESP_LOGW(TAG, "Clearing pending MQTT msg id %d: %s", msg_id, reason);
-  aws_mqttHandle->pending_msg_id = 0;
-  aws_mqttHandle->pending_msg_xmit_us = 0;
   timerHistMqPubCleared(msg_id, reason);
+  clear_in_flight_mq_msg();
 }
 
-bool isMqttPublishPending() { return aws_mqttHandle->pending_msg_id != 0; }
+bool isMqttPublishPending() { return aws_mqttHandle->inFlightMsgId != 0; }
+
+int getMqttInFlightMsgId(void) { return aws_mqttHandle->inFlightMsgId; }
+
+int64_t getMqttInFlightAgeMs(void) {
+  if (aws_mqttHandle->inFlightMsgId == 0) {
+    return 0;
+  }
+
+  return (esp_timer_get_time() - aws_mqttHandle->inFlightXmitUs) / 1000;
+}
+
+bool clearExpiredMqttPublish(void) {
+  if (aws_mqttHandle->inFlightMsgId == 0) {
+    return false;
+  }
+
+  int64_t pending_us = esp_timer_get_time() - aws_mqttHandle->inFlightXmitUs;
+  if (pending_us <= MQ_PENDING_ACK_TIMEOUT_US) {
+    return false;
+  }
+
+  clear_pending_mq_msg("publish ack timeout");
+  return true;
+}
+
+bool getMqttInFlightRecap(int *laneTransitionCount,
+                          uint64_t *healthMarshalledUs) {
+  if (!laneTransitionCount || !healthMarshalledUs ||
+      aws_mqttHandle->inFlightMsgId == 0) {
+    return false;
+  }
+
+  *laneTransitionCount = aws_mqttHandle->inFlightRecap.laneTransitionCount;
+  *healthMarshalledUs = aws_mqttHandle->inFlightRecap.healthMarshalledUs;
+  return true;
+}
 
 static void scheduleMqttReconnect(void) {
   if (mqttReconnectTaskHandle) {
@@ -254,12 +305,16 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base,
     break;
   case MQTT_EVENT_PUBLISHED:
     ESP_LOGI(TAG, "MQTT_EVENT_PUBLISHED, msg_id=%d", event->msg_id);
+    if ((event->msg_id % 10) == 7) {
+      ESP_LOGW(TAG, "TEST: dropping MQTT_EVENT_PUBLISHED msg_id=%d",
+               event->msg_id);
+      break;
+    }
     pubAckPending--;
-    if (aws_mqttHandle->pending_msg_id == event->msg_id) {
+    if (aws_mqttHandle->inFlightMsgId == event->msg_id) {
       int64_t latency_ms =
-          (esp_timer_get_time() - aws_mqttHandle->pending_msg_xmit_us) / 1000;
+          (esp_timer_get_time() - aws_mqttHandle->inFlightXmitUs) / 1000;
       aws_mqttHandle->recent_msg_latency_ms = latency_ms;
-      aws_mqttHandle->pending_msg_id = 0;
       ESP_LOGI(TAG,
                "Publish ack received for pending msg id %d latency %" PRIi64
                " ms",
@@ -268,6 +323,7 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base,
         aws_mqttHandle->max_msg_latency_ms = latency_ms;
       }
       timerHistMqPubAcked(event->msg_id);
+      clear_in_flight_mq_msg();
       scheduleMqPubDataList(100); // make sure backlog is caught up
     }
     break;
@@ -479,18 +535,12 @@ void mq_pub_tags(jsonTagP tagsHead) {
   char buf[bufs] = {};
   fmtJson(buf, bufs, tagsHead);
 }
-int mq_pub64(char *msg) {
+int mq_pub64(char *msg, int laneTransitionCount, uint64_t healthMarshalledUs) {
   // return -8;
   int msg_id = -9;
-  if (aws_mqttHandle->pending_msg_id != 0) {
-    int64_t pending_us =
-        esp_timer_get_time() - aws_mqttHandle->pending_msg_xmit_us;
-    if (pending_us > MQ_PENDING_ACK_TIMEOUT_US) {
-      clear_pending_mq_msg("publish ack timeout");
-    }
-  }
+  clearExpiredMqttPublish();
 
-  if (aws_mqttHandle->p_client && aws_mqttHandle->pending_msg_id == 0) {
+  if (aws_mqttHandle->p_client && aws_mqttHandle->inFlightMsgId == 0) {
     ESP_LOGI(TAG, "mq_pub64 sending publish pending msg  %s ", msg);
     /*
      * Keep QoS 1 for broker PUBACKs, but do not store messages in ESP-MQTT's
@@ -501,14 +551,16 @@ int mq_pub64(char *msg) {
                                      1, 0, false);
   } else {
     ESP_LOGI(TAG, "mq_pub64 NOT sent publish pending msg id %d ",
-             aws_mqttHandle->pending_msg_id);
+             aws_mqttHandle->inFlightMsgId);
   }
 
   if (msg_id >= 0) {
     ESP_LOGI(TAG, "mq_pub64 sent publish successful, topic [%s] msg_id=%d",
              mq_topic, msg_id);
-    aws_mqttHandle->pending_msg_id = msg_id;
-    aws_mqttHandle->pending_msg_xmit_us = esp_timer_get_time();
+    aws_mqttHandle->inFlightMsgId = msg_id;
+    aws_mqttHandle->inFlightXmitUs = esp_timer_get_time();
+    aws_mqttHandle->inFlightRecap.laneTransitionCount = laneTransitionCount;
+    aws_mqttHandle->inFlightRecap.healthMarshalledUs = healthMarshalledUs;
     pubAckPending++;
   } else {
     ESP_LOGI(TAG, "mq_pub64 NOT sent publish  ");
