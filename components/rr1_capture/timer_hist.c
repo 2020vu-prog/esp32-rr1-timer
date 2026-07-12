@@ -3,6 +3,7 @@
 #include "mbedtls/base64.h"
 #include "stddef.h"
 #include <string.h>
+#include <sys/param.h>
 
 #include "aws-bandaid.h"
 #include "build_meta.h"
@@ -10,15 +11,38 @@
 #include "esp_heap_caps.h"
 #include "esp_system.h"
 #include "esp_timer.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/semphr.h"
 #include "rr1_wifi.h"
 #include "timer.pb-c.h"
 #include "timer_health.h"
+#include "timer_marshal.h"
 #include "timer_mqtt.h"
+#if CONFIG_HEAP_TASK_TRACKING
+#include "esp_heap_task_info.h"
+#endif
+/*
+ * Enable DISCARD_INVALID_XMIT_SLOTS to recover the transmit cursor past zeroed
+ * history slots. Keep it off while reproducing cursor/slot holes so the first
+ * invalid slot remains visible.
+ */
+
 static uint64_t lastHealthUs = 0;
-static marshal_recap_t pendingMqRecap = {};
-static int pendingMqMsgId = -1;
+static SemaphoreHandle_t mqTxMutex = NULL;
+
+#define HEAP_TASK_SUMMARY_MAX_TASKS 16
+#define HEAP_TASK_SUMMARY_MIN_BYTES 4096
+
+typedef struct {
+  int laneTransitionCount;
+  uint64_t healthMarshalledUs;
+} timer_hist_publish_recap_t;
 
 Timerpb__TimerData *marshalRr1TimerPbTimerDataHealth();
+static void logHealthMemoryStats(void);
+#if CONFIG_HEAP_TASK_TRACKING
+static void logHeapTaskSummary(void);
+#endif
 const static char *TAG = "rr1_capture";
 timer_config_t timerConfig = {
   clearMs : 10 * 1000,
@@ -34,12 +58,47 @@ candidate_block_t candidateBlock = {
 };
 lane_transition_t *hist;
 lane_transition_t recentState[2] = {};
-int nextHist = 0;
+int nextCaptureHist = 0;
 // int recentHist = 0;
 int nextXmitHist = 0;
 
 inline int dec_hist(int h) { return (h - 1) & HIST_MAX; }
 inline int inc_hist(int h) { return (h + 1) & HIST_MAX; }
+
+/*
+ * There is only one publisher: mq_marshal runs mqPubDataList() and stands down
+ * while MQTT has an in-flight publish. The mutex serializes the handoff after
+ * enqueue succeeds: a fast MQTT ack can arrive before mqPubDataList() has
+ * finished cleanup and returned.
+ */
+static void mqTxLock(void) {
+  if (mqTxMutex) {
+    xSemaphoreTake(mqTxMutex, portMAX_DELAY);
+  }
+}
+
+static void mqTxUnlock(void) {
+  if (mqTxMutex) {
+    xSemaphoreGive(mqTxMutex);
+  }
+}
+
+int timerHistGetHealthIntervalMs(int tlCount) {
+  return tlCount > 0
+             ? 30000
+             : 55000; // if data is waiting, bundle health opportunistically
+}
+
+uint64_t timerHistNextHealthDueMs(int tlCount, uint64_t nowMs) {
+  if (lastHealthUs == 0) {
+    return nowMs;
+  }
+
+  uint64_t dueUs =
+      lastHealthUs + ((uint64_t)timerHistGetHealthIntervalMs(tlCount) * 1000);
+  uint64_t dueMs = (dueUs / 1000) + 1;
+  return MAX(dueMs, nowMs);
+}
 
 void timer_hist_init() {
   ESP_LOGI(TAG, "timer_hist_init: BEGIN");
@@ -49,7 +108,11 @@ void timer_hist_init() {
   hist = heap_caps_malloc(size, MALLOC_CAP_SPIRAM);
   ESP_LOGI(TAG, "timer_hist_init: %d :: %p ", size, hist);
   memset(hist, 0, size);
-  test_ghandle();
+  mqTxMutex = xSemaphoreCreateMutex();
+  if (!mqTxMutex) {
+    ESP_LOGE(TAG, "timer_hist_init: failed to create mq tx mutex");
+  }
+  timerMarshalInit();
   ESP_LOGI(TAG, "timer_hist_init: END");
 }
 uint64_t msecsToTicks(uint64_t ms) { return ms * 1000; }
@@ -58,7 +121,7 @@ void potentialRollCandidate(lane_transition_t *hp) {
   if (candidateBlock.expiryTicks64 < hp->cap_value64) {
     memset(&candidateBlock, 0, sizeof(candidateBlock));
 
-    candidateBlock.birthIndex = dec_hist(nextHist);
+    candidateBlock.birthIndex = nextCaptureHist;
     candidateBlock.birthTicks64 = hp->cap_value64;
     candidateBlock.expiryTicks64 =
         candidateBlock.birthTicks64 + msecsToTicks(timerConfig.clearMs);
@@ -115,7 +178,7 @@ void auditCandidateHist() {
   lane_finish_t l12[2] = {};
   //    lane_finish_t l2 = {};
 
-  for (int x = dec_hist(nextHist);
+  for (int x = dec_hist(nextCaptureHist);
        hist[x].cap_value64 >= candidateBlock.birthTicks64; x = dec_hist(x)) {
     ESP_LOGI(TAG, "auditCandidateHist %d %d", x, HIST_MAX);
     lane_transition_t *hp = &hist[x];
@@ -132,7 +195,7 @@ void th_append(esp_probe_recv_data_t *recv_dataP) {
     ESP_LOGI(TAG, "th_append: SKIPPED no mem");
     return;
   }
-  lane_transition_t *hpNext = &hist[nextHist];
+  lane_transition_t *hpNext = &hist[nextCaptureHist];
 
   hpNext->gps_micros = 0; //  defer until candidate block is assigned
   hpNext->lane_result_state = getResultState(recv_dataP->cap_edge);
@@ -142,8 +205,8 @@ void th_append(esp_probe_recv_data_t *recv_dataP) {
   ESP_LOGI(TAG, "th_append gpio:%d state: %d", (int)hpNext->lane_gpio,
            (int)hpNext->lane_result_state);
 
-  nextHist = inc_hist(nextHist);
   potentialRollCandidate(hpNext);
+  nextCaptureHist = inc_hist(nextCaptureHist);
   // VERY SLOW
   // auditCandidateHist();
   candidateBlock.auditPending = true;
@@ -236,78 +299,151 @@ void freeRr1TimerPbTimerDataList(Timerpb__TimerDataList *tdl) {
 }
 
 int getXmitHistBacklog() {
-  int backlog = nextHist - nextXmitHist;
+  int backlog = nextCaptureHist - nextXmitHist;
   return backlog & HIST_MAX;
 }
-Timerpb__TimerDataList *marshalRr1TimerPbTimerDataList(lane_transition_t *h,
-                                                       marshal_recap_t *mrt);
+
+#ifdef DISCARD_INVALID_XMIT_SLOTS
+static int discardInvalidXmitSlots(void) {
+  int discarded = 0;
+  int backlog = getXmitHistBacklog();
+  while (backlog > 0 && hist[nextXmitHist].cap_value64 == 0) {
+    ESP_LOGW(TAG, "discarding invalid xmit slot idx %d backlog %d",
+             nextXmitHist, backlog);
+    nextXmitHist = inc_hist(nextXmitHist);
+    discarded++;
+    backlog = getXmitHistBacklog();
+  }
+  return discarded;
+}
+#endif
+
+Timerpb__TimerDataList *
+marshalRr1TimerPbTimerDataList(lane_transition_t *h,
+                               timer_hist_publish_recap_t *recap);
 int mqPubDataList() {
-  marshal_recap_t mrt = {};
+  timer_hist_publish_recap_t recap = {};
+  Timerpb__TimerDataList *tdl = NULL;
+  uint8_t *buffer = NULL;
+  int rc = -1;
+
+  clearExpiredMqttPublish();
+
+  mqTxLock();
+  if (isMqttPublishPending()) {
+    ESP_LOGI(TAG,
+             "mqPubDataList: publish already pending msg_id %d age %" PRId64
+             " ms",
+             getMqttInFlightMsgId(), getMqttInFlightAgeMs());
+    goto cleanup;
+  }
   if (getMqttPublishCredits() < 1) {
     ESP_LOGW(TAG, "mqPubDataList: no publish credits");
-    return -1;
+    goto cleanup;
   }
 
-  Timerpb__TimerDataList *tdl = marshalRr1TimerPbTimerDataList(hist, &mrt);
+  tdl = marshalRr1TimerPbTimerDataList(hist, &recap);
   if (!tdl) {
     ESP_LOGI(TAG, "mqPubDataList: nothing to publish");
-    return 0;
+    rc = 0;
+    goto cleanup;
   }
   size_t packed_size = timerpb__timer_data_list__get_packed_size(tdl);
-  uint8_t *buffer = malloc(packed_size);
+  buffer = malloc(packed_size);
+  if (!buffer) {
+    ESP_LOGE(TAG, "mqPubDataList: failed to allocate %zu bytes", packed_size);
+    goto cleanup;
+  }
   timerpb__timer_data_list__pack(tdl, buffer);
 
-  int rc = aba_xmit_b64_json(buffer, packed_size);
-
-  free(buffer);
-  freeRr1TimerPbTimerDataList(tdl);
+  rc = aba_xmit_b64_json(buffer, packed_size, recap.laneTransitionCount,
+                         recap.healthMarshalledUs);
 
   if (rc > 0) {
-    pendingMqMsgId = rc;
-    pendingMqRecap = mrt;
     ESP_LOGI(TAG, "mqPubDataList: awaiting ack msg_id %d lane count %d", rc,
-             pendingMqRecap.laneTransitionCount);
+             recap.laneTransitionCount);
   }
+
+cleanup:
+  free(buffer);
+  if (tdl) {
+    freeRr1TimerPbTimerDataList(tdl);
+  }
+  mqTxUnlock();
   return rc;
 }
 
 void timerHistMqPubAcked(int msg_id) {
-  if (pendingMqMsgId != msg_id) {
-    ESP_LOGW(TAG, "timerHistMqPubAcked: ignoring msg_id %d, pending %d", msg_id,
-             pendingMqMsgId);
+  int laneTransitionCount = 0;
+  uint64_t healthMarshalledUs = 0;
+
+  mqTxLock();
+  if (!getMqttInFlightRecap(&laneTransitionCount, &healthMarshalledUs)) {
+    ESP_LOGW(TAG, "timerHistMqPubAcked: no in-flight recap for msg_id %d",
+             msg_id);
+    mqTxUnlock();
     return;
   }
 
-  nextXmitHist = (nextXmitHist + pendingMqRecap.laneTransitionCount) & HIST_MAX;
-  if (pendingMqRecap.healthMarshalledUs > 0) {
-    lastHealthUs = pendingMqRecap.healthMarshalledUs;
+  nextXmitHist = (nextXmitHist + laneTransitionCount) & HIST_MAX;
+  if (healthMarshalledUs > 0) {
+    lastHealthUs = healthMarshalledUs;
   }
   decrementMqttPublishCredits();
   ESP_LOGI(TAG, "timerHistMqPubAcked: advanced %d transitions for msg_id %d",
-           pendingMqRecap.laneTransitionCount, msg_id);
+           laneTransitionCount, msg_id);
 
-  pendingMqMsgId = -1;
-  memset(&pendingMqRecap, 0, sizeof(pendingMqRecap));
+  mqTxUnlock();
 }
-int aba_xmit_b64_json(uint8_t *buffer, size_t packed_size) {
+
+void timerHistMqPubCleared(int msg_id, const char *reason) {
+  mqTxLock();
+  ESP_LOGW(TAG,
+           "timerHistMqPubCleared: clearing msg_id %d without advancing "
+           "nextXmitHist: %s",
+           msg_id, reason);
+  mqTxUnlock();
+  scheduleMqPubDataList(1000);
+}
+
+int aba_xmit_b64_json(uint8_t *buffer, size_t packed_size,
+                      int laneTransitionCount, uint64_t healthMarshalledUs) {
   unsigned char *input = buffer;
-  uint8_t *buffer64 = calloc(1, packed_size * 2);
-  size_t outlen;
+  size_t buffer64_size = 4 * ((packed_size + 2) / 3) + 1;
+  uint8_t *buffer64 = calloc(1, buffer64_size);
+  if (!buffer64) {
+    ESP_LOGE(TAG, "aba_xmit_b64_json: failed to allocate %zu bytes",
+             buffer64_size);
+    return -1;
+  }
 
-  mbedtls_base64_encode(buffer64, packed_size * 2, &outlen, input, packed_size);
+  size_t outlen = 0;
+  int enc_rc = mbedtls_base64_encode(buffer64, buffer64_size, &outlen, input,
+                                     packed_size);
+  if (enc_rc != 0) {
+    ESP_LOGE(TAG, "aba_xmit_b64_json: base64 encode failed rc=%d", enc_rc);
+    free(buffer64);
+    return -1;
+  }
+  buffer64[outlen] = 0;
   char *bj64 = aba_b64_json((char *)buffer64);
+  if (!bj64) {
+    ESP_LOGE(TAG, "aba_xmit_b64_json: failed to build json");
+    free(buffer64);
+    return -1;
+  }
 
-  int rc = mq_pub64(bj64);
+  int rc = mq_pub64(bj64, laneTransitionCount, healthMarshalledUs);
+  if (rc > 0) {
+    aba_b64_json_mark_sent();
+  }
   free(buffer64);
   free(bj64);
   return rc;
 }
 bool isHealthDue(int tlCount) {
   uint64_t upUs = esp_timer_get_time();
-  int healthIntervalMs =
-      tlCount > 0
-          ? 30000
-          : 55000; // if we have data to send, bundle health opportunistically
+  int healthIntervalMs = timerHistGetHealthIntervalMs(tlCount);
   ESP_LOGI(TAG,
            "isHealthDue: tlCount %d upUs %" PRIu64 " lastHealthUs %" PRIu64
            " healthIntervalMs %d",
@@ -319,15 +455,27 @@ bool isHealthDue(int tlCount) {
   }
   return false;
 }
-Timerpb__TimerDataList *marshalRr1TimerPbTimerDataList(lane_transition_t *h,
-                                                       marshal_recap_t *mrt) {
+Timerpb__TimerDataList *
+marshalRr1TimerPbTimerDataList(lane_transition_t *h,
+                               timer_hist_publish_recap_t *recap) {
 
+#ifdef DISCARD_INVALID_XMIT_SLOTS
+  discardInvalidXmitSlots();
+#endif
   int tlCount = getXmitHistBacklog();
   int healthCount = isHealthDue(tlCount) ? 1 : 0;
   if (tlCount > 20) {
     tlCount = 20; // cap the backlog to avoid creating huge messages
   }
-  mrt->laneTransitionCount = tlCount;
+  for (int x = 0; x < tlCount; x++) {
+    int idx = (nextXmitHist + x) & HIST_MAX;
+    if (hist[idx].cap_value64 == 0) {
+      ESP_LOGW(TAG, "stopping xmit at invalid slot idx %d offset %d", idx, x);
+      tlCount = x;
+      break;
+    }
+  }
+  recap->laneTransitionCount = tlCount;
   if (tlCount < 1 && healthCount < 1) {
     ESP_LOGI(TAG, "marshalRr1TimerPbTimerDataList: backlog %d empty", tlCount);
     return NULL;
@@ -349,8 +497,8 @@ Timerpb__TimerDataList *marshalRr1TimerPbTimerDataList(lane_transition_t *h,
   }
   if (healthCount) {
     tdl->timerdata[tlCount] = marshalRr1TimerPbTimerDataHealth();
-    mrt->healthMarshalledUs = esp_timer_get_time();
-    heap_caps_print_heap_info(MALLOC_CAP_8BIT);
+    recap->healthMarshalledUs = esp_timer_get_time();
+    logHealthMemoryStats();
   }
 
   struct timespec tv;
@@ -365,6 +513,69 @@ Timerpb__TimerDataList *marshalRr1TimerPbTimerDataList(lane_transition_t *h,
   tdl->prevpubackms = getMqttRecentLatencyMs();
   return tdl;
 }
+
+static void logHealthMemoryStats(void) {
+  multi_heap_info_t internal_info = {};
+  heap_caps_get_info(&internal_info, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+  ESP_LOGI(TAG,
+           "internal_heap free=%zu min=%zu largest=%zu free_blocks=%zu "
+           "allocated_blocks=%zu",
+           internal_info.total_free_bytes, internal_info.minimum_free_bytes,
+           internal_info.largest_free_block, internal_info.free_blocks,
+           internal_info.allocated_blocks);
+
+  multi_heap_info_t default_info = {};
+  heap_caps_get_info(&default_info, MALLOC_CAP_DEFAULT);
+  ESP_LOGI(TAG,
+           "default_heap free=%zu min=%zu largest=%zu free_blocks=%zu "
+           "allocated_blocks=%zu",
+           default_info.total_free_bytes, default_info.minimum_free_bytes,
+           default_info.largest_free_block, default_info.free_blocks,
+           default_info.allocated_blocks);
+
+#if CONFIG_HEAP_TASK_TRACKING
+  logHeapTaskSummary();
+#endif
+}
+
+#if CONFIG_HEAP_TASK_TRACKING
+static void logHeapTaskSummary(void) {
+  heap_task_totals_t totals[HEAP_TASK_SUMMARY_MAX_TASKS] = {};
+  size_t totalCount = 0;
+  heap_task_info_params_t params = {
+      .caps = {MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT,
+               MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT, 0},
+      .mask = {MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT,
+               MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT, 0},
+      .totals = totals,
+      .num_totals = &totalCount,
+      .max_totals = HEAP_TASK_SUMMARY_MAX_TASKS,
+  };
+
+  heap_caps_get_per_task_info(&params);
+  ESP_LOGI(TAG, "heap_task | task             | total  | internal | spiram | "
+                "other  | allocs");
+  ESP_LOGI(TAG, "heap_task | ---------------- | ------ | -------- | ------ | "
+                "------ | ------");
+  for (size_t i = 0; i < totalCount; i++) {
+    size_t internalBytes = totals[i].size[0];
+    size_t spiramBytes = totals[i].size[1];
+    size_t otherBytes = totals[i].size[2];
+    size_t totalBytes = internalBytes + spiramBytes + otherBytes;
+    if (totalBytes < HEAP_TASK_SUMMARY_MIN_BYTES) {
+      continue;
+    }
+
+    size_t allocCount =
+        totals[i].count[0] + totals[i].count[1] + totals[i].count[2];
+    const char *taskName =
+        totals[i].task ? pcTaskGetName(totals[i].task) : "Pre-scheduler";
+    ESP_LOGI(TAG, "heap_task | %-16s | %6zu | %8zu | %6zu | %6zu | %6zu",
+             taskName, totalBytes, internalBytes, spiramBytes, otherBytes,
+             allocCount);
+  }
+}
+#endif
 
 /*
 **
@@ -452,5 +663,8 @@ Timerpb__TimerData *marshalRr1TimerPbTimerDataHealth() {
 
   ESP_LOGI(TAG, "marshalRr1TimerPbTimerDataHealth: cpu idle percent %d",
            (int)td->timerhealth->cpuidlepercent);
+  ESP_LOGI(TAG,
+           "marshalRr1TimerPbTimerDataHealth: wifi_ps_min_modem percent %d",
+           getRecentWifiPsMinModemPercentAverage());
   return td;
 }

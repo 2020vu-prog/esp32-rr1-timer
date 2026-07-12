@@ -5,6 +5,7 @@
 #include "gps_xlate.h"
 #include "timer_capture.h"
 #include <inttypes.h>
+#include <stddef.h>
 typedef enum _lane_state_enum {
   LANE_BLOCKED = 1,
   LANE_CLEAR = 2,
@@ -22,7 +23,7 @@ typedef struct {
 void timer_hist_init();
 void th_append(esp_probe_recv_data_t *recv_dataP);
 extern lane_transition_t *hist;
-extern int nextHist;
+extern int nextCaptureHist;
 #define HIST_MAX 0x7fff
 // #define HIST_MAX 0x000f
 #define MEG (1000 * 1000)
@@ -52,11 +53,6 @@ typedef struct {
   char errs[9];
 } lane_finish_t;
 
-typedef struct {
-  int laneTransitionCount;
-  uint64_t healthMarshalledUs;
-} marshal_recap_t;
-
 lane_state_enum getResultState(mcpwm_capture_edge_t cap_edge);
 
 #define FE_MISSING_NOSE 'a'
@@ -67,6 +63,12 @@ lane_state_enum getResultState(mcpwm_capture_edge_t cap_edge);
 #define FE_NONE '0'
 
 int mqPubDataList();
+int getXmitHistBacklog();
 void timerHistMqPubAcked(int msg_id);
+void timerHistMqPubCleared(int msg_id, const char *reason);
+int timerHistGetHealthIntervalMs(int tlCount);
+uint64_t timerHistNextHealthDueMs(int tlCount, uint64_t nowMs);
+bool isHealthDue(int tlCount);
 
-int aba_xmit_b64_json(uint8_t *buffer, size_t packed_size);
+int aba_xmit_b64_json(uint8_t *buffer, size_t packed_size,
+                      int laneTransitionCount, uint64_t healthMarshalledUs);

@@ -21,6 +21,7 @@ fi
 
 if [[ -z "${GH_TOKEN:-}" ]]; then
   echo "GH_TOKEN or GITHUB_TOKEN is required to download GitHub Actions artifacts" >&2
+  echo "The proto repository is public, but GitHub requires authentication for the artifact ZIP download endpoint." >&2
   echo "CI provides this automatically; locally, run 'gh auth login' and export GH_TOKEN=\$(gh auth token)." >&2
   exit 1
 fi

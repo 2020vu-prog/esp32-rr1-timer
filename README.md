@@ -85,6 +85,15 @@ Typical flash and monitor:
 idf.py -p <PORT> flash monitor
 ```
 
+## Host Tests
+
+Some regressions are covered by lightweight host tests that do not require an
+ESP32 target or ESP-IDF environment. Run them with:
+
+```sh
+python3 -m unittest discover -s tests
+```
+
 ## Firmware Publishing
 
 The GitHub Actions workflow builds every branch. For selected branch names, `tools/aws_env.sh` sets an AWS account and S3 bucket, then CI uploads:

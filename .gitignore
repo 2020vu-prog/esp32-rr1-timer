@@ -1,7 +1,13 @@
 build/
+build_verify*/
+__pycache__/
+*.py[cod]
 sdkconfig.old
 managed_components/
 components/rr1_messages/timer.pb-c.c
 components/rr1_messages/timestamp.pb-c.c
 components/rr1_messages/include/timer.pb-c.h
 components/rr1_messages/include/google/protobuf/timestamp.pb-c.h
+it_tests/build*/
+it_tests/sdkconfig
+it_tests/sdkconfig.old

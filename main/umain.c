@@ -95,9 +95,6 @@ void app_main(void) {
   xTaskCreate(&nmea_main, "nmea_main", 8192, NULL, 5, NULL);
 
   const esp_app_desc_t *ad = esp_app_get_description();
-  while (1) {
-    // ESP_LOGI(TAG, "umain Hello World! %s", CONFIG_APP_PROJECT_VER);
-    ESP_LOGI(TAG, "umain version TEST859! %s", ad->version);
-    vTaskDelay(5000 / portTICK_PERIOD_MS);
-  }
+  ESP_LOGI(TAG, "app_main: init complete, version %s", ad->version);
+  vTaskDelete(NULL);
 }
