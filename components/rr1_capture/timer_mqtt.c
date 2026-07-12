@@ -12,6 +12,7 @@
 #include "esp_system.h"
 #include "nvs_flash.h"
 #include <inttypes.h>
+#include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -44,6 +45,9 @@ static TaskHandle_t mqttReconnectTaskHandle = NULL;
 #ifndef MQTT_TEST_DROP_PUBACK_7
 #define MQTT_TEST_DROP_PUBACK_7 0
 #endif
+#ifndef MQTT_TEST_DROP_FIRST_PUBACK
+#define MQTT_TEST_DROP_FIRST_PUBACK 1
+#endif
 #define RECENT_WIFI_PS_MAX 9
 #define WIFI_PS_INVALID -999
 static int mq_publish_credits = MQ_PUBLISH_CREDITS_MAX;
@@ -57,6 +61,9 @@ static int64_t wifiPsLastChangeUs = 0;
 static int64_t wifiPsMinModemTotalUs = 0;
 static int64_t wifiPsLastSampleUs = 0;
 static int64_t wifiPsLastSampleMinModemUs = 0;
+#if MQTT_TEST_DROP_FIRST_PUBACK
+static bool mqttTestDroppedFirstPubAck = false;
+#endif
 const char *AWS_ROOT_CA_1 = "\
 -----BEGIN CERTIFICATE-----\n\
 MIIDQTCCAimgAwIBAgITBmyfz5m/jAo54vB4ikPmljZbyjANBgkqhkiG9w0BAQsF\
@@ -389,6 +396,14 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base,
     break;
   case MQTT_EVENT_PUBLISHED:
     ESP_LOGI(TAG, "MQTT_EVENT_PUBLISHED, msg_id=%d", event->msg_id);
+#if MQTT_TEST_DROP_FIRST_PUBACK
+    if (!mqttTestDroppedFirstPubAck) {
+      mqttTestDroppedFirstPubAck = true;
+      ESP_LOGW(TAG, "TEST: dropping first MQTT_EVENT_PUBLISHED msg_id=%d",
+               event->msg_id);
+      break;
+    }
+#endif
 #if MQTT_TEST_DROP_PUBACK_7
     if ((event->msg_id % 10) == 7) {
       ESP_LOGW(TAG, "TEST: dropping MQTT_EVENT_PUBLISHED msg_id=%d",

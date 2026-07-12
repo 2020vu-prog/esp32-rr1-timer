@@ -62,6 +62,13 @@ class MqttPublishPendingTests(unittest.TestCase):
         self.assertIn("getMqttInFlightMsgId()", body)
         self.assertIn("getMqttInFlightAgeMs()", body)
 
+    def test_first_puback_drop_runtime_probe_is_enabled(self):
+        source = read_source("components/rr1_capture/timer_mqtt.c")
+
+        self.assertIn("#define MQTT_TEST_DROP_FIRST_PUBACK 1", source)
+        self.assertIn("mqttTestDroppedFirstPubAck", source)
+        self.assertIn("TEST: dropping first MQTT_EVENT_PUBLISHED", source)
+
 
 if __name__ == "__main__":
     unittest.main()
