@@ -108,7 +108,6 @@ void timer_hist_init() {
   hist = heap_caps_malloc(size, MALLOC_CAP_SPIRAM);
   ESP_LOGI(TAG, "timer_hist_init: %d :: %p ", size, hist);
   memset(hist, 0, size);
-  test_ghandle();
   mqTxMutex = xSemaphoreCreateMutex();
   if (!mqTxMutex) {
     ESP_LOGE(TAG, "timer_hist_init: failed to create mq tx mutex");

@@ -6,9 +6,6 @@
 #include <string.h>
 #include <time.h>
 
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-
 #define gps_list_max 8
 #define MEG1 1000000
 
@@ -98,86 +95,4 @@ void getGpsHandle(gps_xlate_handle_t *ghandle) {
   }
   init_ghandle(ghandle);
   return;
-}
-
-#define TST_XLATE_LO (50 * MEG1)
-#define TST_XLATE_HI ((51 * MEG1) + 30)
-#define TST_EDGE 70000
-void test_ghandle(void) {
-
-  gps_xlate_handle_t testHandle = {
-      .t0 =
-          {
-              .epoch = (7) + YEAR5,
-              .cap_value64 = TST_XLATE_LO,
-          },
-      .t1 =
-          {
-              .epoch = (9) + YEAR5,
-              .cap_value64 = TST_XLATE_HI,
-          },
-      //.ratio = 9.9, // to be calculated
-  };
-  gps_xlate_handle_t *ghandle = &testHandle;
-  init_ghandle(&testHandle);
-  ESP_LOGI("test_ghandle", "t0 epoch %" PRId64 " capv %" PRId64,
-           ghandle->t0.epoch, ghandle->t0.cap_value64);
-  ESP_LOGI("test_ghandle", "t0 epoch int %d ", (int)ghandle->t0.epoch);
-  ESP_LOGI("test_ghandle", "t0 epoch z %d ", sizeof(ghandle->t0.epoch));
-  ESP_LOGI("test_ghandle", "t0 capv %" PRId64, ghandle->t0.cap_value64);
-  ESP_LOGI("test_ghandle", "t1 epoch %" PRId64 " capv %" PRId64,
-           ghandle->t1.epoch, ghandle->t1.cap_value64);
-  // ESP_LOGI("test_ghandle", "ratio Lfi %Lf", ghandle->ratioLdSlow);
-  // ESP_LOGI("test_ghandle", "ratio float %f", ghandle->ratioF);
-
-  struct timespec resulTs;
-
-  uint64_t sample64;
-  int64_t resultUs;
-
-  sample64 = TST_XLATE_LO;
-  resultUs = xlateCap64(ghandle, &sample64, &resulTs);
-  ESP_LOGI("test_ghandle", "sample64 %" PRIu64 " xlated i %" PRId64, sample64,
-           resultUs);
-
-  sample64 = TST_XLATE_HI;
-  resultUs = xlateCap64(ghandle, &sample64, &resulTs);
-  ESP_LOGI("test_ghandle", "sample64 %" PRIu64 " xlated i %" PRId64, sample64,
-           resultUs);
-
-  int deltaMin = 100000000;
-  int deltaMax = 0;
-
-  int64_t priorUs = -1;
-  for (sample64 = TST_XLATE_LO - TST_EDGE; sample64 <= TST_XLATE_HI + TST_EDGE;
-       sample64 += 10000) {
-    taskYIELD();
-    vTaskDelay(pdMS_TO_TICKS(1));
-    resultUs = xlateCap64(ghandle, &sample64, &resulTs);
-    if (priorUs != -1) {
-      int delta = resultUs - priorUs;
-      if (delta < deltaMin) {
-        deltaMin = delta;
-      }
-      if (delta > deltaMax) {
-        deltaMax = delta;
-      }
-      ESP_LOGI("test_ghandle",
-               "sample64 %" PRIu64 " xlated i %" PRId64 " delta %d", sample64,
-               resultUs, delta);
-    }
-    priorUs = resultUs;
-  }
-  ESP_LOGI("test_ghandle", "deltaMin %d deltaMax %d", deltaMin, deltaMax);
-  /*
-  sample64 = 50 * MEG1 + 500015;
-  resultUs = xlateCap64(ghandle, &sample64, &resulTs);
-  ESP_LOGI("test_ghandle", "sample64 %" PRIu64 " xlated i %" PRId64, sample64,
-  resultUs);
-
-  sample64 = 50 * MEG1 + 500000;
-  resultUs = xlateCap64(ghandle, &sample64, &resulTs);
-  ESP_LOGI("test_ghandle", "sample64 %" PRIu64 " xlated i %" PRId64, sample64,
-  resultUs);
-*/
 }
