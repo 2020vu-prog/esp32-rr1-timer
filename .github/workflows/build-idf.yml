@@ -32,6 +32,9 @@ jobs:
           sources: "components/**/*.h,components/**/*.c,main/*.h,main/*.c"
           excludes: "components/rr1_messages/timer.pb-c.c,components/rr1_messages/timestamp.pb-c.c,components/rr1_messages/include/timer.pb-c.h,components/rr1_messages/include/google/protobuf/timestamp.pb-c.h"
 
+      - name: Run unit tests
+        run: python3 -m unittest discover -s tests
+
       - name: Set up ESP-IDF v5.5.4
         uses: espressif/esp-idf-ci-action@v1
         with:
