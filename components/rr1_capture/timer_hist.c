@@ -664,5 +664,8 @@ Timerpb__TimerData *marshalRr1TimerPbTimerDataHealth() {
 
   ESP_LOGI(TAG, "marshalRr1TimerPbTimerDataHealth: cpu idle percent %d",
            (int)td->timerhealth->cpuidlepercent);
+  ESP_LOGI(TAG,
+           "marshalRr1TimerPbTimerDataHealth: wifi_ps_min_modem percent %d",
+           getRecentWifiPsMinModemPercentAverage());
   return td;
 }

@@ -41,7 +41,22 @@ static esp_mqtt_client_handle_t mqttClient = NULL;
 static TaskHandle_t mqttReconnectTaskHandle = NULL;
 #define MQ_PUBLISH_CREDITS_MAX 100
 #define MQTT_RECONNECT_BACKOFF_MS 5000
+#ifndef MQTT_TEST_DROP_PUBACK_7
+#define MQTT_TEST_DROP_PUBACK_7 0
+#endif
+#define RECENT_WIFI_PS_MAX 9
+#define WIFI_PS_INVALID -999
 static int mq_publish_credits = MQ_PUBLISH_CREDITS_MAX;
+static int recentWifiPsMinModemPercents[RECENT_WIFI_PS_MAX] = {
+    WIFI_PS_INVALID, WIFI_PS_INVALID, WIFI_PS_INVALID,
+    WIFI_PS_INVALID, WIFI_PS_INVALID, WIFI_PS_INVALID,
+    WIFI_PS_INVALID, WIFI_PS_INVALID, WIFI_PS_INVALID};
+static int recentWifiPsIndex = 0;
+static wifi_ps_type_t currentWifiPsMode = WIFI_PS_NONE;
+static int64_t wifiPsLastChangeUs = 0;
+static int64_t wifiPsMinModemTotalUs = 0;
+static int64_t wifiPsLastSampleUs = 0;
+static int64_t wifiPsLastSampleMinModemUs = 0;
 const char *AWS_ROOT_CA_1 = "\
 -----BEGIN CERTIFICATE-----\n\
 MIIDQTCCAimgAwIBAgITBmyfz5m/jAo54vB4ikPmljZbyjANBgkqhkiG9w0BAQsF\
@@ -137,6 +152,75 @@ static void log_error_if_nonzero(const char *message, int error_code) {
 
 static int pubAckPending = 0;
 #define MQ_PENDING_ACK_TIMEOUT_US (30 * 1000 * 1000)
+
+static int64_t getWifiPsMinModemTotalUs(int64_t nowUs) {
+  int64_t totalUs = wifiPsMinModemTotalUs;
+  if (wifiPsLastChangeUs > 0 && currentWifiPsMode == WIFI_PS_MIN_MODEM) {
+    totalUs += nowUs - wifiPsLastChangeUs;
+  }
+  return totalUs;
+}
+
+static void noteWifiPowerSaveMode(wifi_ps_type_t mode) {
+  int64_t nowUs = esp_timer_get_time();
+  if (wifiPsLastChangeUs == 0) {
+    wifiPsLastChangeUs = nowUs;
+    wifiPsLastSampleUs = nowUs;
+    wifiPsLastSampleMinModemUs = wifiPsMinModemTotalUs;
+  } else if (currentWifiPsMode == WIFI_PS_MIN_MODEM) {
+    wifiPsMinModemTotalUs += nowUs - wifiPsLastChangeUs;
+    wifiPsLastChangeUs = nowUs;
+  } else {
+    wifiPsLastChangeUs = nowUs;
+  }
+  currentWifiPsMode = mode;
+}
+
+static void setTrackedWifiPowerSaveMode(wifi_ps_type_t mode,
+                                        const char *reason) {
+  esp_err_t err = esp_wifi_set_ps(mode);
+  if (err != ESP_OK) {
+    ESP_LOGW(TAG, "esp_wifi_set_ps(%d) failed for %s: %s", mode, reason,
+             esp_err_to_name(err));
+    return;
+  }
+  noteWifiPowerSaveMode(mode);
+}
+
+int getRecentWifiPsMinModemPercentAverage(void) {
+  int64_t nowUs = esp_timer_get_time();
+  if (wifiPsLastSampleUs == 0) {
+    wifiPsLastSampleUs = nowUs;
+    wifiPsLastSampleMinModemUs = getWifiPsMinModemTotalUs(nowUs);
+    return 0;
+  }
+
+  int64_t totalMinModemUs = getWifiPsMinModemTotalUs(nowUs);
+  int64_t elapsedUs = nowUs - wifiPsLastSampleUs;
+  if (elapsedUs > 0) {
+    int64_t minModemUs = totalMinModemUs - wifiPsLastSampleMinModemUs;
+    int percent = (int)((minModemUs * 100) / elapsedUs);
+    if (percent < 0) {
+      percent = 0;
+    } else if (percent > 100) {
+      percent = 100;
+    }
+    recentWifiPsMinModemPercents[recentWifiPsIndex] = percent;
+    recentWifiPsIndex = (recentWifiPsIndex + 1) % RECENT_WIFI_PS_MAX;
+    wifiPsLastSampleUs = nowUs;
+    wifiPsLastSampleMinModemUs = totalMinModemUs;
+  }
+
+  int sum = 0;
+  int count = 0;
+  for (int i = 0; i < RECENT_WIFI_PS_MAX; i++) {
+    if (recentWifiPsMinModemPercents[i] != WIFI_PS_INVALID) {
+      sum += recentWifiPsMinModemPercents[i];
+      count++;
+    }
+  }
+  return count > 0 ? sum / count : 0;
+}
 
 static void clear_in_flight_mq_msg(void) {
   aws_mqttHandle->inFlightMsgId = 0;
@@ -305,11 +389,13 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base,
     break;
   case MQTT_EVENT_PUBLISHED:
     ESP_LOGI(TAG, "MQTT_EVENT_PUBLISHED, msg_id=%d", event->msg_id);
+#if MQTT_TEST_DROP_PUBACK_7
     if ((event->msg_id % 10) == 7) {
       ESP_LOGW(TAG, "TEST: dropping MQTT_EVENT_PUBLISHED msg_id=%d",
                event->msg_id);
       break;
     }
+#endif
     pubAckPending--;
     if (aws_mqttHandle->inFlightMsgId == event->msg_id) {
       int64_t latency_ms =
@@ -323,6 +409,7 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base,
         aws_mqttHandle->max_msg_latency_ms = latency_ms;
       }
       timerHistMqPubAcked(event->msg_id);
+      setTrackedWifiPowerSaveMode(WIFI_PS_MIN_MODEM, "publish ack");
       clear_in_flight_mq_msg();
       scheduleMqPubDataList(100); // make sure backlog is caught up
     }
@@ -542,6 +629,7 @@ int mq_pub64(char *msg, int laneTransitionCount, uint64_t healthMarshalledUs) {
 
   if (aws_mqttHandle->p_client && aws_mqttHandle->inFlightMsgId == 0) {
     ESP_LOGI(TAG, "mq_pub64 sending publish pending msg  %s ", msg);
+    setTrackedWifiPowerSaveMode(WIFI_PS_NONE, "publish");
     /*
      * Keep QoS 1 for broker PUBACKs, but do not store messages in ESP-MQTT's
      * outbox across reconnects. timer_hist owns resend by holding nextXmitHist
