@@ -33,7 +33,7 @@ Startup sequence:
 
 - `main/` - top-level application entry point and OTA update task.
 - `components/rr1_capture/` - timing capture, lane history, MQTT publishing, health payloads, CPU idle tracking, and I2C/tap handling.
-- `components/rr1_messages/` - protobuf schemas and generated C bindings for timer data.
+- `components/rr1_messages/` - generated protobuf-c bindings for timer data; schemas live in the peer `rr1-timer-protos` repo.
 - `components/rr1_wifi_prov/` - Wi-Fi provisioning, NVS helpers, reset button handling, and stored RR1 configuration.
 - `components/rr1_gps/` - UART GPS input and NMEA parsing.
 - `components/rr1_pin_defs/` - board pin definitions.
@@ -57,10 +57,41 @@ idf.py set-target esp32c5
 idf.py build
 ```
 
+## Protobuf Bindings
+
+The timer `.proto` schemas are maintained in the peer `rr1-timer-protos`
+repository. Its GitHub Action generates protobuf-c bindings and publishes the
+`rr1-messages-generated` artifact. This repository does not track those
+generated `.pb-c.c` or `.pb-c.h` files; CI downloads them before formatting and
+building.
+
+CI uses its built-in GitHub token for the artifact download. For a local build,
+fetch the latest successful artifact with GitHub CLI authentication:
+
+```sh
+export GH_TOKEN="$(gh auth token)"
+./tools/download_rr1_messages_artifact.sh
+```
+
+If you download the artifact manually, update this firmware component with:
+
+```sh
+./tools/update_rr1_messages_from_artifact.sh <artifact-directory>
+```
+
 Typical flash and monitor:
 
 ```sh
 idf.py -p <PORT> flash monitor
+```
+
+## Host Tests
+
+Some regressions are covered by lightweight host tests that do not require an
+ESP32 target or ESP-IDF environment. Run them with:
+
+```sh
+python3 -m unittest discover -s tests
 ```
 
 ## Firmware Publishing

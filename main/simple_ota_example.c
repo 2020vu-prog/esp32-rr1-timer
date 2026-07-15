@@ -12,6 +12,7 @@
 #include "esp_log.h"
 #include "esp_ota_ops.h"
 #include "esp_system.h"
+#include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 // #include "protocol_examples_common.h"
@@ -21,6 +22,7 @@
 #include "nvs.h"
 #include "nvs_flash.h"
 // #include "protocol_examples_common.h"
+#include <inttypes.h>
 #include <sys/socket.h>
 #if CONFIG_EXAMPLE_CONNECT_WIFI
 #include "esp_wifi.h"
@@ -66,17 +68,22 @@ bool firmware_update_available(const char *ota_url) {
   esp_http_client_handle_t client = esp_http_client_init(&config);
 
   // 2. Execute the request
+  int64_t perform_start_us = esp_timer_get_time();
   esp_err_t err = esp_http_client_perform(client);
+  int64_t perform_ms = (esp_timer_get_time() - perform_start_us) / 1000;
 
   if (err == ESP_OK) {
     // 3. Retrieve status and headers
     int status_code = esp_http_client_get_status_code(client);
     int64_t content_length = esp_http_client_get_content_length(client);
 
-    ESP_LOGI(TAG, "HTTP HEAD Status = %d, content_length = %lld", status_code,
-             content_length);
+    ESP_LOGI(TAG,
+             "HTTP HEAD Status = %d, content_length = %lld, latency=%" PRId64
+             " ms",
+             status_code, content_length, perform_ms);
   } else {
-    ESP_LOGE(TAG, "HTTP HEAD request failed: %s", esp_err_to_name(err));
+    ESP_LOGE(TAG, "HTTP HEAD request failed after %" PRId64 " ms: %s",
+             perform_ms, esp_err_to_name(err));
   }
 
   // 4. Clean up resources

@@ -5,7 +5,6 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
-#include "cpu_idle.h"
 #include "esp_check.h"
 #include "esp_timer.h"
 #include "gps_xlate.h"
@@ -13,6 +12,7 @@
 #include "timer_blink.h"
 #include "timer_capture.h"
 #include "timer_hist.h"
+#include "timer_marshal.h"
 #include "timer_mqtt.h"
 
 #include <math.h>
@@ -282,27 +282,11 @@ void simulateLaneActivity(PollFunc *pf) {
   pup = !pup;
 }
 
-void mqPollDataList() { mqPubDataList(); }
-
-void mqIncCreditsPeriodically(PollFunc *pf) {
-  // mq_pub("health30");
-  incMqttPublishCredits();
-  mqPubDataList();
-}
-void idleCalc(PollFunc *pf) {
-  statsRecap_t recap = {};
-  updateCpuIdleStats(&recap);
-  ESP_LOGI(TAG, "idleCalc: cpu  percent %d idle percent %d",
-           (int)recap.cpu_used_percent, (int)recap.cpu_idle_percent);
-}
 PollFunc pollFuncs[] = {
-    {.func = mqPollDataList, .freqMs = 999999000, .nextMs = 0}, // event driven
-    {.func = mqIncCreditsPeriodically, .freqMs = 15000, .nextMs = 0},
     //{.func = simulateLaneActivity, .freqMs = 10000, .nextMs = 0},
     {.func = quadWatchdog, .freqMs = 45000, .nextMs = 0},
     {.func = blinkUserLed, .freqMs = 1000, .nextMs = 0},
     {.func = blinkLaser, .freqMs = 1000, .nextMs = 0},
-    {.func = idleCalc, .freqMs = 10000, .nextMs = 0},
     {.func = NULL, .freqMs = 0, .nextMs = 0} // sentinel
 
 };
@@ -315,16 +299,6 @@ void reset_blink_poll(blink_output_t output) {
   }
   awakenPoll();
 }
-void scheduleMqPubDataList(int delayMs) {
-  uint64_t nowMs = esp_timer_get_time() / 1000;
-  for (int x = 0; pollFuncs[x].func != NULL; x++) {
-    if (pollFuncs[x].func == mqPollDataList) {
-      pollFuncs[x].nextMs = nowMs + delayMs;
-    }
-  }
-  awakenPoll(); // recalc next poll
-}
-
 int doPollAll() {
 
   const uint64_t nowMs = esp_timer_get_time() / 1000;
@@ -348,7 +322,6 @@ int doPollAll() {
       delayMs = pollFuncs[x].nextMs - nowMs;
     }
   }
-  // mqIncCreditsPeriodically();
   const uint64_t elapsedMs = (esp_timer_get_time() / 1000) - nowMs;
   if (elapsedMs > 2) {
     ESP_LOGW(TAG, "doPollAll: polling is SLOW! %d ms", (int)elapsedMs);
@@ -423,7 +396,7 @@ void capture_main_xtask(void *pvParameters) {
         uint64_t nowUs = esp_timer_get_time();
         pd->pinHandlerFunc(&recv_data);
         uint64_t handlerElapsedUs = esp_timer_get_time() - nowUs;
-        if (handlerElapsedUs > 2000) {
+        if (handlerElapsedUs > 4000) {
           ESP_LOGW(TAG, "pinHandlerFunc is SLOW! %d ms",
                    (int)handlerElapsedUs / 1000);
         }

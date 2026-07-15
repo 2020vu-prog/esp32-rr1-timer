@@ -12,14 +12,28 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
+
+      - name: Download generated protobuf bindings
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ./tools/download_rr1_messages_artifact.sh
+
       - name: Run clang-format
         uses: RafikFarhad/clang-format-github-action@v6
         with:
           sources: "components/**/*.h,components/**/*.c,main/*.h,main/*.c"
+          excludes: "components/rr1_messages/timer.pb-c.c,components/rr1_messages/timestamp.pb-c.c,components/rr1_messages/include/timer.pb-c.h,components/rr1_messages/include/google/protobuf/timestamp.pb-c.h"
+
+      - name: Run unit tests
+        run: python3 -m unittest discover -s tests
 
       - name: Set up ESP-IDF v5.5.4
         uses: espressif/esp-idf-ci-action@v1

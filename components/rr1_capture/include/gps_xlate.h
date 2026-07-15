@@ -24,5 +24,3 @@ void log_gps_pps(esp_probe_recv_data_t *rd);
 int64_t xlateCap64(gps_xlate_handle_t *pair, uint64_t *sample64,
                    struct timespec *resulTs);
 void getGpsHandle(gps_xlate_handle_t *gp);
-
-void test_ghandle(void);

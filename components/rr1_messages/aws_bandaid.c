@@ -14,7 +14,7 @@ char *aba_b64_json(char *buffer) {
     goto end;
   }
 
-  if (cJSON_AddNumberToObject(monitor, "seq", seq++) == NULL) {
+  if (cJSON_AddNumberToObject(monitor, "seq", seq) == NULL) {
     goto end;
   }
   if (cJSON_AddStringToObject(monitor, "b64", buffer) == NULL) {
@@ -29,3 +29,5 @@ end:
   cJSON_Delete(monitor);
   return string;
 }
+
+void aba_b64_json_mark_sent(void) { seq++; }
