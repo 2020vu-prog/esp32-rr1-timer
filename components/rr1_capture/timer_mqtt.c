@@ -10,7 +10,6 @@
 #include "esp_event.h"
 #include "esp_netif.h"
 #include "esp_system.h"
-#include "nvs_flash.h"
 #include <inttypes.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -22,7 +21,6 @@
 #include "esp_log.h"
 #include "esp_sntp.h"
 
-#include "esp_system.h"
 #include "esp_timer.h"
 #include "esp_wifi.h"
 #include "freertos/FreeRTOS.h"
@@ -290,7 +288,6 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base,
 
     set_error_priority(ERROR_PRI_MQTT, false);
     aws_mqttHandle->connCount++;
-    mq_pub("MQTT_EVENT_CONNECTED");
     scheduleMqPubDataList(1000);
 
     break;
@@ -512,32 +509,6 @@ void mqtt_app_start(void) {
   ESP_LOGI(TAG, "0412MQTT client started");
 }
 
-void NOTapp_main(void) {
-  ESP_LOGI(TAG, "[APP] Startup..");
-  ESP_LOGI(TAG, "[APP] Free memory: %" PRIu32 " bytes",
-           esp_get_free_heap_size());
-  ESP_LOGI(TAG, "[APP] IDF version: %s", esp_get_idf_version());
-
-  esp_log_level_set("*", ESP_LOG_INFO);
-  esp_log_level_set("mqtt_client", ESP_LOG_VERBOSE);
-  esp_log_level_set("mqtt_example", ESP_LOG_VERBOSE);
-  esp_log_level_set("transport_base", ESP_LOG_VERBOSE);
-  esp_log_level_set("esp-tls", ESP_LOG_VERBOSE);
-  esp_log_level_set("transport", ESP_LOG_VERBOSE);
-  esp_log_level_set("outbox", ESP_LOG_VERBOSE);
-
-  ESP_ERROR_CHECK(nvs_flash_init());
-  ESP_ERROR_CHECK(esp_netif_init());
-  ESP_ERROR_CHECK(esp_event_loop_create_default());
-
-  /* This helper function configures Wi-Fi or Ethernet, as selected in
-   * menuconfig. Read "Establishing Wi-Fi or Ethernet Connection" section in
-   * examples/protocols/README.md for more information about this function.
-   */
-  // ESP_ERROR_CHECK(example_connect());
-
-  mqtt_app_start();
-}
 double epoch_double() {
   struct timespec tv;
   if (clock_gettime(CLOCK_REALTIME, &tv)) {
@@ -551,25 +522,6 @@ double epoch_double() {
   return atof(time_str); // Convert to a double
 }
 
-unsigned long getTime() {
-  time_t now;
-  /*
-  struct tm timeinfo;
-
-  if (!getLocalTime(&timeinfo))
-  {
-      // Serial.println("Failed to obtain time");
-      return (0);
-  }
-  */
-  time(&now);
-  return now;
-}
-const int bufs = 128;
-void mq_pub_tags(jsonTagP tagsHead) {
-  char buf[bufs] = {};
-  fmtJson(buf, bufs, tagsHead);
-}
 int mq_pub64(char *msg, int laneTransitionCount, uint64_t healthMarshalledUs) {
   // return -8;
   int msg_id = -9;
@@ -603,56 +555,6 @@ int mq_pub64(char *msg, int laneTransitionCount, uint64_t healthMarshalledUs) {
     wifiPowerRelease(WIFI_POWER_HOLD_MQTT_PUBLISH, "publish failed");
   }
   return msg_id;
-}
-void mq_pub(char *msg) {
-  return;
-  static int seq;
-  seq++;
-  uint64_t upUs = esp_timer_get_time();
-  char buf[bufs] = {};
-  int msg_id;
-  jsonTag jfirst = {
-    tag : "seq",
-    val64 : seq,
-  };
-
-  fmtJson(buf, bufs, &jfirst);
-
-  if (aws_mqttHandle->p_client) {
-    double nowD = epoch_double();
-
-    int fheap = esp_get_minimum_free_heap_size();
-    snprintf(buf, bufs,
-             "{\"seq\":%04d, \"msg\":\"%s\", \"t\":\"%.4f\", \"f\":\"%d\", "
-             "\"up\":%" PRIu64
-             ", \"conn\":\"%d:%d\",\"minutes\":%d, \"blog\":%d  }",
-             seq, msg, nowD, fheap, upUs, aws_mqttHandle->connCount,
-             aws_mqttHandle->disconnCount, (int)(upUs / 1000000) / 60,
-             pubAckPending);
-
-    msg_id = esp_mqtt_client_enqueue(aws_mqttHandle->p_client, mq_topic, buf, 0,
-                                     2, 0, true);
-    ESP_LOGI(TAG, "mq_pub sent publish successful, msg_id=%d", msg_id);
-    pubAckPending++;
-
-    // ESP_LOGI(TAG, "sent , now=%ld", getTime());
-  } else {
-    ESP_LOGI(TAG, "mq_pub NOT sent publish  ");
-  }
-}
-void addTag(jsonTagP tagsHead, jsonTagP nt) {
-  while (tagsHead) {
-    if (!tagsHead->next) {
-      tagsHead->next = nt;
-      return;
-    }
-    tagsHead = tagsHead->next;
-  }
-}
-void fmtJson(char *buf, size_t bufs, jsonTagP tagsHead) {
-  while (tagsHead) {
-    tagsHead = tagsHead->next;
-  }
 }
 int getMqttConnectionCount() { return aws_mqttHandle->connCount; }
 int getMqttRecentLatencyMs() { return aws_mqttHandle->recent_msg_latency_ms; }

@@ -34,7 +34,7 @@ class WifiPowerSaveMetricTests(unittest.TestCase):
         self.assertIn("getRecentWifiPsMinModemPercentAverage", power_source)
 
     def test_ota_holds_wifi_awake_during_https_attempt(self):
-        source = read_source("main/simple_ota_example.c")
+        source = read_source("main/rr1_ota.c")
 
         self.assertIn("wifiPowerHold(WIFI_POWER_HOLD_OTA", source)
         self.assertIn("wifiPowerRelease(WIFI_POWER_HOLD_OTA", source)

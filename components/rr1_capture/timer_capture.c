@@ -13,7 +13,6 @@
 #include "timer_capture.h"
 #include "timer_hist.h"
 #include "timer_marshal.h"
-#include "timer_mqtt.h"
 
 #include <math.h>
 #include <time.h>
@@ -348,7 +347,6 @@ void capture_main_xtask(void *pvParameters) {
   const char *uuid_ran = uuid_generate();
 #endif
 
-  uint64_t priorv = 0;
   while (1) {
 
     int delayMs = doPollAll();
@@ -356,15 +354,6 @@ void capture_main_xtask(void *pvParameters) {
 #ifdef CONFIG_UUID_CUSTOM_GENERATION
     ESP_LOGI(TAG, "Generated UUID: %s", uuid_ran);
 #endif
-    // wait for echo done signal
-    /// uint32_t timer_value = mcpwm_capture_timer_get_value(gcap_timer);
-    // uint32_t timer_value = mcpwm_capture_signal_get_value(gcap_timer);
-    uint32_t timer_value = 17;
-    char buf[128] = {};
-    snprintf(buf, 128, "%s %ld", TAG, timer_value);
-
-    // mq_pub(buf);
-
     esp_probe_recv_data_t recv_data = {};
     if (delayMs < 10) {
       delayMs = 10;
@@ -377,21 +366,11 @@ void capture_main_xtask(void *pvParameters) {
         continue; // woke for poll, not isr
       }
       apply64bitHysterisis(&recv_data);
-      uint64_t elapsed = recv_data.cap_value64 - priorv;
       // pindef_t *pd = (pindef_t *)recv_data.pin_user_data;
       pindef_t *pd = recv_data.pin_user_data;
       ESP_LOGI(TAG, "xQueueReceive got: %" PRIu64 " %d %d %s",
                recv_data.cap_value64, (int)pd->gpio, (int)recv_data.cap_edge,
                pd->pname);
-      snprintf(buf, 128, "gpio: %" PRIu64 " %s %d E:%" PRIu64,
-               recv_data.cap_value64, pd->pname, (int)recv_data.cap_edge,
-               elapsed);
-      if (recv_data.cap_edge) // wip
-      {
-
-        priorv = recv_data.cap_value64;
-        mq_pub(buf);
-      }
       if (pd && pd->pinHandlerFunc) {
         uint64_t nowUs = esp_timer_get_time();
         pd->pinHandlerFunc(&recv_data);

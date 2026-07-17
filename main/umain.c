@@ -32,7 +32,6 @@
 #include "timer_i2c_motion.h"
 #include "timer_i2c_tap.h"
 #include "timer_mqtt.h"
-#include "timer_stdin.h"
 
 // Use the macro: CONFIG_APP_PROJECT_VER
 
@@ -41,7 +40,7 @@ static const char *TAG = "umain";
 void app_main(void) {
   vTaskDelay(pdMS_TO_TICKS(100));
 
-  ESP_LOGI(TAG, "OTA example app_main start");
+  ESP_LOGI(TAG, "RR1 timer app_main start");
   // Initialize NVS.
   esp_err_t err = nvs_flash_init();
   if (err == ESP_ERR_NVS_NO_FREE_PAGES ||
@@ -69,7 +68,6 @@ void app_main(void) {
    * menuconfig. Read "Establishing Wi-Fi or Ethernet Connection" section in
    * examples/protocols/README.md for more information about this function.
    */
-  // init_timer_stdin(); stdin messes up flash from usb
   rr1WifiProv();
   // nvs_dumprr1();
 
@@ -89,9 +87,9 @@ void app_main(void) {
   testem();
   // capture_main();
 
-  ESP_LOGI(TAG, "app_main: Hello World! runumber: %s", GITHUB_RUN_NUMBER);
+  ESP_LOGI(TAG, "app_main: GitHub run number: %s", GITHUB_RUN_NUMBER);
   // TODO:  check for new version. no repeat updates to same ver!
-  xTaskCreate(&simple_ota_example_task, "ota_task", 8192, NULL, 5, NULL);
+  xTaskCreate(&rr1_ota_task, "ota_task", 8192, NULL, 5, NULL);
   xTaskCreate(&nmea_main, "nmea_main", 8192, NULL, 5, NULL);
 
   const esp_app_desc_t *ad = esp_app_get_description();

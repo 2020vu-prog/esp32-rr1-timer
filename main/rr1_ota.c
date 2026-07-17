@@ -1,4 +1,4 @@
-/* OTA example
+/* RR1 OTA support
 
    This example code is in the Public Domain (or CC0 licensed, at your option.)
 
@@ -33,7 +33,7 @@
 #include "wifi_power.h"
 #define HASH_LEN 32
 
-static const char *TAG = "simple_ota";
+static const char *TAG = "rr1_ota";
 extern const uint8_t server_cert_pem_start[] asm("_binary_ca_cert_pem_start");
 extern const uint8_t server_cert_pem_end[] asm("_binary_ca_cert_pem_end");
 
@@ -130,9 +130,9 @@ esp_err_t _http_ota_event_handler(esp_http_client_event_t *evt) {
   }
   return ESP_OK;
 }
-int simple_ota_attempt() {
+int rr1_ota_attempt() {
   int rc = -1;
-  ESP_LOGI(TAG, "Starting OTA example task");
+  ESP_LOGI(TAG, "Starting OTA attempt");
   wifiPowerHold(WIFI_POWER_HOLD_OTA, "ota attempt");
   char dns_host[64];
   nvs_get_rr1_host(dns_host, sizeof(dns_host));
@@ -181,19 +181,19 @@ ota_done:
 
   return rc;
 }
-void simple_ota_example_task(void *pvParameter) {
+void rr1_ota_task(void *pvParameter) {
   for (int i = 0; i < 5; i++) {
     while (get_error_priority(ERROR_PRI_WIFI_CONNECTION)) {
       ESP_LOGW(TAG,
-               "simple_ota_example_task: waiting for Wi-Fi connection before "
+               "rr1_ota_task: waiting for Wi-Fi connection before "
                "attempt %d",
                i + 1);
 
       vTaskDelay(10000 / portTICK_PERIOD_MS); // Wait before retrying
     }
     int wifi_transition_count = get_transition_count(ERROR_PRI_WIFI_CONNECTION);
-    ESP_LOGI(TAG, "simple_ota_example_task: attempt %d", i + 1);
-    int rc = simple_ota_attempt();
+    ESP_LOGI(TAG, "rr1_ota_task: attempt %d", i + 1);
+    int rc = rr1_ota_attempt();
     if (rc == 0) {
       break; // Success, exit the loop
     }
@@ -201,16 +201,15 @@ void simple_ota_example_task(void *pvParameter) {
     if (get_transition_count(ERROR_PRI_WIFI_CONNECTION) >
         wifi_transition_count) {
       ESP_LOGW(TAG,
-               "simple_ota_example_task: Wi-Fi connection issue detected "
+               "rr1_ota_task: Wi-Fi connection issue detected "
                "during attempt %d",
                i + 1);
       continue;
     }
 
-    ESP_LOGW(TAG, "simple_ota_example_task: attempt %d failed, retrying...",
-             i + 1);
+    ESP_LOGW(TAG, "rr1_ota_task: attempt %d failed, retrying...", i + 1);
   }
-  ESP_LOGW(TAG, "simple_ota_example_task: attempt DONE");
+  ESP_LOGW(TAG, "rr1_ota_task: attempt DONE");
   vTaskDelete(NULL);
 }
 
