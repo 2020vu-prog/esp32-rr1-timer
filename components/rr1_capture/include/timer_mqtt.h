@@ -21,7 +21,6 @@ int mq_pub64(char *msg, int laneTransitionCount, uint64_t healthMarshalledUs);
 int getMqttConnectionCount();
 int getMqttRecentLatencyMs();
 int getMqttMaxLatencyMs();
-int getRecentWifiPsMinModemPercentAverage(void);
 bool isMqttPublishPending();
 int getMqttInFlightMsgId(void);
 int64_t getMqttInFlightAgeMs(void);

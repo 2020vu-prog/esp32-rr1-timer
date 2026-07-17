@@ -30,6 +30,7 @@
 #include "rr1_blink.h"
 #include "rr1_ota.h"
 #include "rr1_wifi.h"
+#include "wifi_power.h"
 #define HASH_LEN 32
 
 static const char *TAG = "simple_ota";
@@ -132,6 +133,7 @@ esp_err_t _http_ota_event_handler(esp_http_client_event_t *evt) {
 int simple_ota_attempt() {
   int rc = -1;
   ESP_LOGI(TAG, "Starting OTA example task");
+  wifiPowerHold(WIFI_POWER_HOLD_OTA, "ota attempt");
   char dns_host[64];
   nvs_get_rr1_host(dns_host, sizeof(dns_host));
   char ota_url[OTA_URL_SIZE];
@@ -174,6 +176,7 @@ int simple_ota_attempt() {
   }
 
 ota_done:
+  wifiPowerRelease(WIFI_POWER_HOLD_OTA, "ota done");
   ESP_LOGI(TAG, "OTA task finished");
 
   return rc;
