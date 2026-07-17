@@ -18,6 +18,7 @@
 #include "timer_health.h"
 #include "timer_marshal.h"
 #include "timer_mqtt.h"
+#include "wifi_power.h"
 #if CONFIG_HEAP_TASK_TRACKING
 #include "esp_heap_task_info.h"
 #endif
