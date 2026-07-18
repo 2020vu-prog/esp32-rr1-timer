@@ -9,6 +9,7 @@
 #include <timer_blink.h>
 
 #include "rr1_pin_defs.h"
+#include "timer_i2c_tap.h"
 
 #define I2C_MASTER_SDA_IO RR1_PIN_I2C_DATA
 #define I2C_MASTER_SCL_IO RR1_PIN_I2C_CLK
@@ -35,6 +36,7 @@ static const char *TAG = "LIS3DH_TAP";
 static i2c_master_dev_handle_t i2c_dev_handle;
 static i2c_master_bus_handle_t i2c_bus_handle;
 static QueueHandle_t gpio_evt_queue = NULL;
+static uint8_t lis3dh_tap_threshold = 0x20;
 
 #define RECENT_CLICKS_SIZE 10
 static uint8_t recentClickIndex = 0; // Index for circular buffer
@@ -139,6 +141,23 @@ static void IRAM_ATTR gpio_isr_handler(void *arg) {
   uint32_t gpio_num = (uint32_t)arg;
   xQueueSendFromISR(gpio_evt_queue, &gpio_num, NULL);
 }
+
+void rr1_i2c_tap_reinit(uint8_t tap_threshold) {
+  lis3dh_tap_threshold = tap_threshold;
+  if (i2c_dev_handle == NULL) {
+    ESP_LOGI(TAG, "LIS3DH not initialized; retrying init with threshold 0x%02X",
+             lis3dh_tap_threshold);
+    rr1_i2c_tap_init();
+    return;
+  }
+
+  esp_err_t err = lis3dh_init_write(LIS3DH_REG_CLICK_THS, lis3dh_tap_threshold,
+                                    "CLICK_THS");
+  if (err == ESP_OK) {
+    ESP_LOGI(TAG, "LIS3DH tap threshold set to 0x%02X", lis3dh_tap_threshold);
+  }
+}
+
 void rr1_i2c_tap_init(void) {
   esp_err_t err;
 
@@ -192,7 +211,8 @@ void rr1_i2c_tap_init(void) {
     goto init_failed;
   }
   // CLICK_THS: Set tap threshold
-  err = lis3dh_init_write(LIS3DH_REG_CLICK_THS, 0x20, "CLICK_THS");
+  err = lis3dh_init_write(LIS3DH_REG_CLICK_THS, lis3dh_tap_threshold,
+                          "CLICK_THS");
   if (err != ESP_OK) {
     goto init_failed;
   }

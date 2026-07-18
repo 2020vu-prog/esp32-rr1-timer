@@ -26,6 +26,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "get_mqtt_creds.h"
+#include "mqtt_cli.h"
 #include "mqtt_client.h"
 #include "rr1_blink.h"
 #include "rr1_wifi.h"
@@ -35,7 +36,8 @@
 #include "timer_mqtt.h"
 #include "wifi_power.h"
 static const char *TAG = "timer_mqtt";
-static char mq_topic[30] = "";
+static char mq_publish_topic[30] = "";
+static char mq_cli_topic[35] = "";
 static char mqtt_client_id[12] = "";
 static esp_mqtt_client_handle_t mqttClient = NULL;
 static TaskHandle_t mqttReconnectTaskHandle = NULL;
@@ -109,9 +111,12 @@ void get_device_hostname(char *host_name, size_t max) {
 void init_mq_topic() {
   char host_name[12];
   get_device_hostname(host_name, sizeof(host_name));
-  snprintf(mq_topic, sizeof(mq_topic), "rr2Timer/%s", host_name);
+  snprintf(mq_publish_topic, sizeof(mq_publish_topic), "rr2Timer/%s",
+           host_name);
+  snprintf(mq_cli_topic, sizeof(mq_cli_topic), "%s/cli", mq_publish_topic);
   snprintf(mqtt_client_id, sizeof(mqtt_client_id), "%s", host_name);
-  ESP_LOGI(TAG, "MQTT topic set to: %s", mq_topic);
+  ESP_LOGI(TAG, "MQTT publish topic set to: %s", mq_publish_topic);
+  ESP_LOGI(TAG, "MQTT CLI topic set to: %s", mq_cli_topic);
 }
 // esp_mqtt_client_handle_t p_client = NULL;
 void time_sync_notification_cb(struct timeval *tv) {
@@ -271,19 +276,12 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base,
   switch ((esp_mqtt_event_id_t)event_id) {
   case MQTT_EVENT_CONNECTED:
     ESP_LOGI(TAG, "MQTT_EVENT_CONNECTED");
-    wifiPowerRelease(WIFI_POWER_HOLD_MQTT_CONNECT, "mqtt connected");
-
-#ifdef DO__SUBSCRIBE
-    msg_id = esp_mqtt_client_subscribe(client, "/topic/cqos0", 0);
-    ESP_LOGI(TAG, "sent subscribe successful, msg_id=%d", msg_id);
-#endif
-    // msg_id = esp_mqtt_client_subscribe(client, mq_topic, 1);
-    // ESP_LOGI(TAG, "sent subscribe successful, msg_id=%d", msg_id);
-
-    //        msg_id = esp_mqtt_client_unsubscribe(client, mq_topic);
-    //        ESP_LOGI(TAG, "sent unsubscribe successful, msg_id=%d", msg_id);
-    // msg_id = esp_mqtt_client_publish(client, mq_topic, "data_3", 0, 1, 0);
-    // ESP_LOGI(TAG, "sent publish successful, msg_id=%d", msg_id);
+    msg_id = esp_mqtt_client_subscribe(client, mq_cli_topic, 1);
+    ESP_LOGI(TAG, "subscribed to MQTT CLI topic [%s], msg_id=%d", mq_cli_topic,
+             msg_id);
+    if (msg_id < 0) {
+      wifiPowerRelease(WIFI_POWER_HOLD_MQTT_CONNECT, "mqtt subscribe failed");
+    }
     aws_mqttHandle->p_client = client;
 
     set_error_priority(ERROR_PRI_MQTT, false);
@@ -310,9 +308,7 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base,
 
   case MQTT_EVENT_SUBSCRIBED:
     ESP_LOGI(TAG, "MQTT_EVENT_SUBSCRIBED, msg_id=%d", event->msg_id);
-    msg_id =
-        esp_mqtt_client_enqueue(client, "/topic/qos0", "data", 0, 0, 0, true);
-    ESP_LOGI(TAG, "sent publish successful, msg_id=%d", msg_id);
+    wifiPowerRelease(WIFI_POWER_HOLD_MQTT_CONNECT, "mqtt subscribed");
     break;
   case MQTT_EVENT_UNSUBSCRIBED:
     ESP_LOGI(TAG, "MQTT_EVENT_UNSUBSCRIBED, msg_id=%d", event->msg_id);
@@ -356,6 +352,7 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base,
     ESP_LOGI(TAG, "MQTT_EVENT_DATA");
     printf("MQTT_EVENT_DATA TOPIC=%.*s\r\n", event->topic_len, event->topic);
     printf("MQTT_EVENT_DATA DATA=%.*s\r\n", event->data_len, event->data);
+    mqttCliHandleData(event, mq_cli_topic);
     break;
   case MQTT_EVENT_ERROR:
     ESP_LOGI(TAG, "MQTT_EVENT_ERROR");
@@ -411,8 +408,8 @@ void mqtt_app_start(void) {
               .disable_clean_session = false,
               .last_will =
                   {
-                      .topic = mq_topic,
-                      .msg = "offline",
+                      .topic = mq_publish_topic,
+                      .msg = "{\"status\":\"offline\"}",
                       .qos = 1,
                       .retain = false,
                   },
@@ -535,8 +532,8 @@ int mq_pub64(char *msg, int laneTransitionCount, uint64_t healthMarshalledUs) {
      * outbox across reconnects. timer_hist owns resend by holding nextXmitHist
      * until timerHistMqPubAcked() observes the PUBACK.
      */
-    msg_id = esp_mqtt_client_enqueue(aws_mqttHandle->p_client, mq_topic, msg, 0,
-                                     1, 0, false);
+    msg_id = esp_mqtt_client_enqueue(aws_mqttHandle->p_client, mq_publish_topic,
+                                     msg, 0, 1, 0, false);
   } else {
     ESP_LOGI(TAG, "mq_pub64 NOT sent publish pending msg id %d ",
              aws_mqttHandle->inFlightMsgId);
@@ -544,7 +541,7 @@ int mq_pub64(char *msg, int laneTransitionCount, uint64_t healthMarshalledUs) {
 
   if (msg_id >= 0) {
     ESP_LOGI(TAG, "mq_pub64 sent publish successful, topic [%s] msg_id=%d",
-             mq_topic, msg_id);
+             mq_publish_topic, msg_id);
     aws_mqttHandle->inFlightMsgId = msg_id;
     aws_mqttHandle->inFlightXmitUs = esp_timer_get_time();
     aws_mqttHandle->inFlightRecap.laneTransitionCount = laneTransitionCount;

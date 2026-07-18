@@ -49,7 +49,11 @@ void get_device_mac(char *mac, size_t max) {
   snprintf(mac, max, "%02X:%02X:%02X:%02X:%02X:%02X", eth_mac[0], eth_mac[1],
            eth_mac[2], eth_mac[3], eth_mac[4], eth_mac[5]);
 }
-void get_wifi_ssid(char *ssid) {
+void get_wifi_ssid(char *ssid, size_t max) {
+  if (!ssid || max == 0) {
+    return;
+  }
+
   wifi_config_t wifi_cfg;
   // Initialize the structure to zero to ensure all fields are handled correctly
   *ssid = 0;
@@ -58,9 +62,12 @@ void get_wifi_ssid(char *ssid) {
   esp_err_t err = esp_wifi_get_config(ESP_IF_WIFI_STA, &wifi_cfg);
 
   if (err == ESP_OK) {
-    // Log the SSID as a string
-    ESP_LOGI(TAG, "Stored SSID: %s", (char *)wifi_cfg.sta.ssid);
-    strcpy(ssid, (char *)wifi_cfg.sta.ssid);
+    size_t ssid_len =
+        strnlen((char *)wifi_cfg.sta.ssid, sizeof(wifi_cfg.sta.ssid));
+    size_t copy_len = ssid_len < max - 1 ? ssid_len : max - 1;
+    memcpy(ssid, wifi_cfg.sta.ssid, copy_len);
+    ssid[copy_len] = 0;
+    ESP_LOGI(TAG, "Stored SSID: %.*s", (int)copy_len, ssid);
   } else {
     ESP_LOGE(TAG, "Failed to get WiFi config (%s)", esp_err_to_name(err));
   }

@@ -7,6 +7,7 @@
    CONDITIONS OF ANY KIND, either express or implied.
 */
 
+#include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -41,6 +42,7 @@
 
 static const char *TAG = "wifi_prov";
 char wifi_ip[20] = {0};
+static bool wifi_provisioning_reset_pending = false;
 
 static void apply_wifi_link_settings(void) {
   /*
@@ -206,14 +208,16 @@ static void event_handler(void *arg, esp_event_base_t event_base,
           (wifi_event_sta_disconnected_t *)event_data;
       ESP_LOGI(TAG,
                "Disconnected from AP. reason=%u rssi=%d bssid="
-               "%02x:%02x:%02x:%02x:%02x:%02x ssid=%.*s. Connecting to the "
-               "AP again...",
+               "%02x:%02x:%02x:%02x:%02x:%02x ssid=%.*s",
                event->reason, event->rssi, event->bssid[0], event->bssid[1],
                event->bssid[2], event->bssid[3], event->bssid[4],
                event->bssid[5], event->ssid_len, (char *)event->ssid);
       wifi_ip[0] = 0;
       timerMqttWifiDisconnected("wifi disconnected");
-      apply_wifi_link_settings();
+      if (wifi_provisioning_reset_pending) {
+        ESP_LOGW(TAG, "Skipping Wi-Fi reconnect during provisioning reset");
+        break;
+      }
       esp_wifi_connect();
       break;
 #ifdef CONFIG_EXAMPLE_PROV_TRANSPORT_SOFTAP
@@ -376,6 +380,7 @@ const wifi_prov_event_handler_t wifi_prov_event_handler = {
 static void button_single_click_cb(void *arg, void *usr_data) {
   ESP_LOGW(TAG, "BUTTON_SINGLE_CLICK");
   // wifi_prov_mgr_reset_sm_state_for_reprovision();
+  wifi_provisioning_reset_pending = true;
   wifi_prov_mgr_reset_provisioning();
 
   set_error_priority(ERROR_PRI_WIFI_PROVISIONING, true);

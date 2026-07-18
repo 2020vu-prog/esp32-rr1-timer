@@ -2,6 +2,8 @@
 #include "gps_xlate.h"
 #include "mbedtls/base64.h"
 #include "stddef.h"
+#include <stdint.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/param.h>
 
@@ -45,6 +47,27 @@ static void logHealthMemoryStats(void);
 static void logHeapTaskSummary(void);
 #endif
 const static char *TAG = "rr1_capture";
+#define RR1_CALLOC(size, label)                                                \
+  checkedCalloc((size), (label), __func__, __LINE__)
+
+static void *checkedCalloc(size_t size, const char *label, const char *func,
+                           int line) {
+  void *ptr = calloc(1, size);
+  if (ptr) {
+    return ptr;
+  }
+
+  multi_heap_info_t internal_info = {};
+  heap_caps_get_info(&internal_info, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+  ESP_LOGE(TAG,
+           "%s:%d failed to allocate %s size=%zu "
+           "internal_free=%zu internal_min=%zu internal_largest=%zu",
+           func, line, label, size, internal_info.total_free_bytes,
+           internal_info.minimum_free_bytes, internal_info.largest_free_block);
+  esp_restart();
+  return NULL;
+}
+
 timer_config_t timerConfig = {
   clearMs : 10 * 1000,
   maxCarMs : 500,
@@ -224,12 +247,10 @@ bool isLaneClear(mcpwm_capture_edge_t cap_edge) {
 }
 
 Timerpb__TimerData *marshalRr1TimerPbTimerData(lane_transition_t *h) {
-  Timerpb__TimerData *td = malloc(sizeof(Timerpb__TimerData));
-  ;
+  Timerpb__TimerData *td = RR1_CALLOC(sizeof(Timerpb__TimerData), "timer data");
   timerpb__timer_data__init(td);
 
-  Timerpb__TimerPin *tp = malloc(sizeof(Timerpb__TimerPin));
-  ;
+  Timerpb__TimerPin *tp = RR1_CALLOC(sizeof(Timerpb__TimerPin), "timer pin");
   timerpb__timer_pin__init(tp);
 
   td->timerpin = tp;
@@ -243,14 +264,15 @@ Timerpb__TimerData *marshalRr1TimerPbTimerData(lane_transition_t *h) {
                      : TIMERPB__PIN_STATE__BLOCKED;
   tp->has_pinnumber = true;
   tp->pinnumber = h->lane_gpio;
-  tp->stamp = malloc(sizeof(Timerpb__TimerTimeStamp));
+  tp->stamp = RR1_CALLOC(sizeof(Timerpb__TimerTimeStamp), "timer pin stamp");
   timerpb__timer_time_stamp__init(tp->stamp);
 
   tp->stamp->has_tick64 = true;
   tp->stamp->tick64 = h->cap_value64;
 
   if (h->gps_micros > 0) {
-    tp->stamp->gpstime = malloc(sizeof(Google__Protobuf__Timestamp));
+    tp->stamp->gpstime =
+        RR1_CALLOC(sizeof(Google__Protobuf__Timestamp), "gps timestamp");
     google__protobuf__timestamp__init(tp->stamp->gpstime);
 
     tp->stamp->gpstime->seconds = h->gps_micros / MEG;
@@ -411,12 +433,7 @@ int aba_xmit_b64_json(uint8_t *buffer, size_t packed_size,
                       int laneTransitionCount, uint64_t healthMarshalledUs) {
   unsigned char *input = buffer;
   size_t buffer64_size = 4 * ((packed_size + 2) / 3) + 1;
-  uint8_t *buffer64 = calloc(1, buffer64_size);
-  if (!buffer64) {
-    ESP_LOGE(TAG, "aba_xmit_b64_json: failed to allocate %zu bytes",
-             buffer64_size);
-    return -1;
-  }
+  uint8_t *buffer64 = RR1_CALLOC(buffer64_size, "base64 mqtt buffer");
 
   size_t outlen = 0;
   int enc_rc = mbedtls_base64_encode(buffer64, buffer64_size, &outlen, input,
@@ -481,25 +498,34 @@ marshalRr1TimerPbTimerDataList(lane_transition_t *h,
     ESP_LOGI(TAG, "marshalRr1TimerPbTimerDataList: backlog %d empty", tlCount);
     return NULL;
   }
-  Timerpb__TimerDataList *tdl = malloc(sizeof(Timerpb__TimerDataList));
-  ;
+  Timerpb__TimerDataList *tdl =
+      RR1_CALLOC(sizeof(Timerpb__TimerDataList), "timer data list");
   timerpb__timer_data_list__init(tdl);
 
-  tdl->n_timerdata = tlCount + healthCount;
-  tdl->timerdata = malloc(sizeof(Timerpb__TimerData *) * tdl->n_timerdata);
+  size_t maxTimerData = tlCount + healthCount;
+  tdl->timerdata = RR1_CALLOC(maxTimerData * sizeof(Timerpb__TimerData *),
+                              "timer data list entries");
   for (int x = 0; x < tlCount; x++) {
     int idx = (nextXmitHist + x) & HIST_MAX;
     h = &hist[idx];
-    tdl->timerdata[x] = marshalRr1TimerPbTimerData(h);
+    Timerpb__TimerData *timerData = marshalRr1TimerPbTimerData(h);
+    tdl->timerdata[tdl->n_timerdata++] = timerData;
     ESP_LOGI(
         TAG,
         "marshalRr1TimerPbTimerDataList: backlog %d idx %d ticks64 %" PRIu64,
         tlCount, idx, h->cap_value64);
   }
   if (healthCount) {
-    tdl->timerdata[tlCount] = marshalRr1TimerPbTimerDataHealth();
+    Timerpb__TimerData *healthData = marshalRr1TimerPbTimerDataHealth();
+    tdl->timerdata[tdl->n_timerdata++] = healthData;
     recap->healthMarshalledUs = esp_timer_get_time();
     logHealthMemoryStats();
+  }
+
+  if (tdl->n_timerdata == 0) {
+    free(tdl->timerdata);
+    free(tdl);
+    return NULL;
   }
 
   struct timespec tv;
@@ -586,15 +612,17 @@ Timerpb__TimerData *marshalRr1TimerPbTimerDataHealth() {
 
   ESP_LOGI(TAG, "marshalRr1TimerPbTimerDataHealth: ");
 
-  Timerpb__TimerData *td = malloc(sizeof(Timerpb__TimerData));
+  Timerpb__TimerData *td =
+      RR1_CALLOC(sizeof(Timerpb__TimerData), "health timer data");
   timerpb__timer_data__init(td);
 
-  td->timerhealth = malloc(sizeof(Timerpb__TimerHealth));
+  td->timerhealth = RR1_CALLOC(sizeof(Timerpb__TimerHealth), "timer health");
   timerpb__timer_health__init(td->timerhealth);
 
   struct timespec tv;
   if (!clock_gettime(CLOCK_REALTIME, &tv)) {
-    td->timerhealth->stamp = malloc(sizeof(Timerpb__TimerTimeStamp));
+    td->timerhealth->stamp =
+        RR1_CALLOC(sizeof(Timerpb__TimerTimeStamp), "health stamp");
     timerpb__timer_time_stamp__init(td->timerhealth->stamp);
     // to do: this is broken
     td->timerhealth->stamp->has_tick64 = true;
@@ -614,8 +642,8 @@ Timerpb__TimerData *marshalRr1TimerPbTimerDataHealth() {
   td->timerhealth->has_cpuuptime = true;
   td->timerhealth->cpuuptime = esp_timer_get_time() / 1000000;
 
-  td->timerhealth->ssid = malloc(40);
-  get_wifi_ssid(td->timerhealth->ssid);
+  td->timerhealth->ssid = RR1_CALLOC(33, "health ssid");
+  get_wifi_ssid(td->timerhealth->ssid, 33);
 
   td->timerhealth->has_mqttconnections = true;
   td->timerhealth->mqttconnections = getMqttConnectionCount();
@@ -636,7 +664,7 @@ Timerpb__TimerData *marshalRr1TimerPbTimerDataHealth() {
   td->timerhealth->gpsflutter = getGpsFlutter();
 
   if (wifi_ip[0]) {
-    td->timerhealth->wifiip = malloc(20);
+    td->timerhealth->wifiip = RR1_CALLOC(20, "health wifiip");
     snprintf(td->timerhealth->wifiip, 20, "%s", wifi_ip);
   }
 
@@ -646,7 +674,7 @@ Timerpb__TimerData *marshalRr1TimerPbTimerDataHealth() {
   td->timerhealth->has_gitdirty = true;
   td->timerhealth->gitdirty = (strstr(GIT_DESCRIBE, "dirty") != NULL);
 
-  td->timerhealth->wirelessmac = malloc(20);
+  td->timerhealth->wirelessmac = RR1_CALLOC(20, "health wirelessmac");
   get_device_mac(td->timerhealth->wirelessmac, 20);
 
   td->timerhealth->has_gpsuptimetotal = true;
