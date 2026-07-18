@@ -27,7 +27,7 @@ class WifiPowerSaveMetricTests(unittest.TestCase):
         )
         self.assertIn("WIFI_POWER_HOLD_MQTT_CONNECT", mqtt_source)
         self.assertIn(
-            "wifiPowerRelease(WIFI_POWER_HOLD_MQTT_CONNECT, \"mqtt connected\")",
+            "wifiPowerRelease(WIFI_POWER_HOLD_MQTT_CONNECT, \"mqtt subscribed\")",
             mqtt_source,
         )
         self.assertIn("applyTrackedWifiPowerSaveMode", power_source)

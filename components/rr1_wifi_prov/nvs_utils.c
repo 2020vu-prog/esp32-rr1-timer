@@ -126,7 +126,7 @@ void nvs_set(char *namespace, char *key, char *value) {
 }
 void nvs_get_rr1_host(char *out_value, size_t max_len) {
   char ssid[40] = "";
-  get_wifi_ssid(ssid);
+  get_wifi_ssid(ssid, sizeof(ssid));
 
   /*
    nvs_get("rr1", "dns_host", out_value, max_len);
