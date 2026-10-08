@@ -18,3 +18,8 @@ dependencies:
   #   public: true
   # k0i05/esp_uuid: ^1.2.4
   espressif/cjson: "^1.7.19"
+  # mqtt was removed from ESP-IDF in 6.0 and is now a managed component.
+  # Public because include/mqtt_cli.h includes mqtt_client.h.
+  espressif/mqtt:
+    version: "^1.0.0"
+    public: true
