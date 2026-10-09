@@ -23,6 +23,8 @@ jobs:
       - name: Download generated protobuf bindings
         env:
           GH_TOKEN: ${{ github.token }}
+          # Pin the protocol definitions; bump when timer.proto changes.
+          RR1_PROTO_TAG: v1.0.0
         run: |
           ./tools/download_rr1_messages_artifact.sh
 
