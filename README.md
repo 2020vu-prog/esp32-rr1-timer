@@ -8,7 +8,7 @@ ESP-IDF firmware for an RR1 timer device built around the ESP32-C5. The firmware
 - Extends hardware capture ticks to 64-bit timestamps and correlates lane events with GPS time.
 - Buffers lane transitions and periodically publishes protobuf payloads over MQTT.
 - Reports runtime health including GPS PPS status, heap, CPU temperature, Wi-Fi RSSI, MQTT latency, uptime, build metadata, and publish credits.
-- Provisions Wi-Fi using the ESP-IDF Wi-Fi provisioning manager.
+- Provisions Wi-Fi using the `espressif/network_provisioning` manager (the ESP-IDF 6.0 successor to `wifi_provisioning`).
 - Fetches MQTT credentials from a configured RR1 backend using HTTPS.
 - Checks for firmware updates by comparing the OTA binary ETag with the value stored in NVS.
 - Parses GPS NMEA sentences from UART for diagnostic GPS information.
@@ -33,7 +33,7 @@ Startup sequence:
 
 - `main/` - top-level application entry point and OTA update task.
 - `components/rr1_capture/` - timing capture, lane history, MQTT publishing, health payloads, CPU idle tracking, and I2C/tap handling.
-- `components/rr1_messages/` - generated protobuf-c bindings for timer data; schemas live in the peer `rr1-timer-protos` repo.
+- `components/rr1_messages/` - generated protobuf-c bindings for timer data; schemas live in the peer `rr1-timer-protobufs` repo.
 - `components/rr1_wifi_prov/` - Wi-Fi provisioning, NVS helpers, reset button handling, and stored RR1 configuration.
 - `components/rr1_gps/` - UART GPS input and NMEA parsing.
 - `components/rr1_pin_defs/` - board pin definitions.
@@ -43,7 +43,7 @@ Startup sequence:
 
 ## Target And Build
 
-- ESP-IDF version in CI: `v5.5.4`
+- ESP-IDF version in CI: `v6.0.3`
 - Target in CI/current config: `esp32c5`
 - Default partitioning: two large OTA app partitions
 - Flash size default: 4 MB
@@ -59,21 +59,28 @@ idf.py build
 
 ## Protobuf Bindings
 
-The timer `.proto` schemas are maintained in the peer `rr1-timer-protos`
-repository. Its GitHub Action generates protobuf-c bindings and publishes the
-`rr1-messages-generated` artifact. This repository does not track those
+The timer `.proto` schemas are maintained in the peer `rr1-timer-protobufs`
+repository. Its GitHub Action generates protobuf-c bindings and publishes them
+as the release asset `rr1-messages-generated.zip` (release assets, unlike
+Actions artifacts, do not expire). This repository does not track those
 generated `.pb-c.c` or `.pb-c.h` files; CI downloads them before formatting and
 building.
 
-CI uses its built-in GitHub token for the artifact download. For a local build,
-fetch the latest successful artifact with GitHub CLI authentication:
+The proto repository is public, so no token is needed:
 
 ```sh
-export GH_TOKEN="$(gh auth token)"
 ./tools/download_rr1_messages_artifact.sh
 ```
 
-If you download the artifact manually, update this firmware component with:
+By default this fetches GitHub's "latest" release of the proto repository,
+which is moved to a new, verified release on every push to its `main` branch.
+To pin a build to a tagged set of bindings, set `RR1_PROTO_TAG`:
+
+```sh
+RR1_PROTO_TAG=v1.0.0 ./tools/download_rr1_messages_artifact.sh
+```
+
+If you download the asset manually, update this firmware component with:
 
 ```sh
 ./tools/update_rr1_messages_from_artifact.sh <artifact-directory>

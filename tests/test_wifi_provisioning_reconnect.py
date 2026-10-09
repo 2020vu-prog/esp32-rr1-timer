@@ -27,7 +27,7 @@ class WifiProvisioningReconnectTests(unittest.TestCase):
         callback = callback.split("static void hookReset", 1)[0]
 
         flag_pos = callback.find("wifi_provisioning_reset_pending = true;")
-        reset_pos = callback.find("wifi_prov_mgr_reset_provisioning();")
+        reset_pos = callback.find("network_prov_mgr_reset_wifi_provisioning();")
 
         self.assertNotEqual(flag_pos, -1)
         self.assertNotEqual(reset_pos, -1)

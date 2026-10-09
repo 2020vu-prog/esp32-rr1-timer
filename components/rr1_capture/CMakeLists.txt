@@ -5,7 +5,7 @@ idf_component_register(SRCS "quad_uint32.c" "timer_hist.c" "timer_marshal.c" "gp
 	"timer_i2c_tap.c"	
 	INCLUDE_DIRS "include" "../../build"
 
-    REQUIRES esp_wifi mqtt 
+    REQUIRES esp_wifi
     	esp_driver_mcpwm
     	rr1_messages
 	rr1_wifi_prov

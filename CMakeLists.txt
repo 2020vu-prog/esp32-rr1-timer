@@ -43,6 +43,9 @@ add_compile_definitions(GITHUB_RUN_NUMBER="${GITHUB_RUN_NUMBER}")
 #add_compile_definitions(GIT_DESCRIBE=${GIT_DESCRIBE})
 #add_compile_definitions(GIT_COMMIT=${GIT_COMMIT})
 configure_file(build_meta.h.in build_meta.h)
+# wifi_provisioning was removed in IDF 6.0; use espressif/network_provisioning
+# on all versions (no-op on 6.x where the legacy component no longer exists).
+set(EXCLUDE_COMPONENTS wifi_provisioning)
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
 # "Trim" the build. Include the minimal set of components, main, and anything it depends on.
 idf_build_set_property(MINIMAL_BUILD ON)

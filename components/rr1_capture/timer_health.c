@@ -59,7 +59,7 @@ void get_wifi_ssid(char *ssid, size_t max) {
   *ssid = 0;
   memset(&wifi_cfg, 0, sizeof(wifi_config_t));
 
-  esp_err_t err = esp_wifi_get_config(ESP_IF_WIFI_STA, &wifi_cfg);
+  esp_err_t err = esp_wifi_get_config(WIFI_IF_STA, &wifi_cfg);
 
   if (err == ESP_OK) {
     size_t ssid_len =
