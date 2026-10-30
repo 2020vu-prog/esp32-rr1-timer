@@ -55,6 +55,10 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     environment: aws
+    # Serialize uploads per branch so overlapping runs cannot race on the S3 object.
+    concurrency:
+      group: aws-deploy-${{ github.ref_name }}
+      cancel-in-progress: false
     permissions:
       id-token: write
       contents: read
@@ -78,6 +82,16 @@ jobs:
         with:
           role-to-assume: "arn:aws:iam::${{ env.AWS_ACCOUNT }}:role/github-actions-s3-upload-role"
           aws-region: us-east-2
+
+      - name: Reject stale deployment
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          head_sha=$(gh api "repos/${{ github.repository }}/git/ref/heads/${{ github.ref_name }}" --jq .object.sha)
+          if [ "$head_sha" != "${{ github.sha }}" ]; then
+            echo "::error::${{ github.ref_name }} is now at $head_sha, not ${{ github.sha }}; refusing to upload stale firmware."
+            exit 1
+          fi
 
       - name: Sync files to S3 bucket
         run: |
