@@ -36,7 +36,10 @@ pindef_t pindefs[] = {
       gpio : GPS_PPS_GPIO,
       pname : "gps_pps",
       pull_down : true,
-      neg_edge : true,
+      // PPS on-time mark is the RISING edge (idle low). The falling edge
+      // trails it by the module's pulse width (typically 100+ ms and not the
+      // same across receivers), which skews timestamps between units.
+      pos_edge : true,
       pinHandlerFunc : pinHandlerGps,
 
     },
