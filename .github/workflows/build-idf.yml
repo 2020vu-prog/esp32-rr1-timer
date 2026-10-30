@@ -1,6 +1,6 @@
 # @format
 
-name: Build with ESP-IDF v5.5.4
+name: Build with ESP-IDF v6.0.3
 env:
   BRANCH_NAME: ${{ github.ref_name }} # Workflow Level
 
@@ -23,6 +23,8 @@ jobs:
       - name: Download generated protobuf bindings
         env:
           GH_TOKEN: ${{ github.token }}
+          # Pin the protocol definitions; bump when timer.proto changes.
+          RR1_PROTO_TAG: v1.0.0
         run: |
           ./tools/download_rr1_messages_artifact.sh
 
@@ -35,10 +37,10 @@ jobs:
       - name: Run unit tests
         run: python3 -m unittest discover -s tests
 
-      - name: Set up ESP-IDF v5.5.4
+      - name: Set up ESP-IDF v6.0.3
         uses: espressif/esp-idf-ci-action@v1
         with:
-          esp_idf_version: "v5.5.4"
+          esp_idf_version: "v6.0.3"
           target: esp32c5
 
       - name: save build artifacts

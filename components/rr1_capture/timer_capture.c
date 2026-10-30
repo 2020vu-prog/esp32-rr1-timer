@@ -36,7 +36,10 @@ pindef_t pindefs[] = {
       gpio : GPS_PPS_GPIO,
       pname : "gps_pps",
       pull_down : true,
-      neg_edge : true,
+      // PPS on-time mark is the RISING edge (idle low). The falling edge
+      // trails it by the module's pulse width (typically 100+ ms and not the
+      // same across receivers), which skews timestamps between units.
+      pos_edge : true,
       pinHandlerFunc : pinHandlerGps,
 
     },
@@ -149,12 +152,22 @@ capture_channel_setup(pindef_t *pd, mcpwm_cap_timer_handle_t cap_timer) {
       // capture on both edge
       .flags.neg_edge = pd->neg_edge,
       .flags.pos_edge = pd->pos_edge,
-      // pull up internally
-      .flags.pull_down = pd->pull_down,
-      .flags.pull_up = pd->pull_up,
   };
   ESP_ERROR_CHECK(
       mcpwm_new_capture_channel(cap_timer, &cap_ch_conf, &cap_local_chan_h));
+
+  // IDF 6.0 removed the pull_up/pull_down flags from the capture channel
+  // config; set the internal pulls explicitly, after the driver has
+  // configured the pin.
+  gpio_pull_mode_t pull_mode = GPIO_FLOATING;
+  if (pd->pull_up && pd->pull_down) {
+    pull_mode = GPIO_PULLUP_PULLDOWN;
+  } else if (pd->pull_up) {
+    pull_mode = GPIO_PULLUP_ONLY;
+  } else if (pd->pull_down) {
+    pull_mode = GPIO_PULLDOWN_ONLY;
+  }
+  ESP_ERROR_CHECK(gpio_set_pull_mode(pd->gpio, pull_mode));
 
   ESP_LOGI(TAG, "Register capture callback");
   //  TaskHandle_t cur_task = xTaskGetCurrentTaskHandle();

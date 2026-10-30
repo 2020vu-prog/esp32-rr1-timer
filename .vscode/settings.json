@@ -1,5 +1,5 @@
 {
-	"idf.currentSetup": "/Users/chriswitte/.espressif/v5.5.3/esp-idf",
+	"idf.currentSetup": "/Users/chriswitte/.espressif/v6.0.3/esp-idf",
 	"editor.defaultFormatter": "xaver.clang-format",
 	"editor.formatOnSave": true,
 	"files.associations": {
